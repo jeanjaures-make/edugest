@@ -30,8 +30,8 @@ export default function ResetPasswordPage() {
         throw new Error(data.message || "Erreur lors de l'envoi")
       }
       setSent(true)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
     } finally {
       setLoading(false)
     }
@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
             <div className="space-y-4 text-center">
               <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
               <p className="text-sm text-gray-600">
-                Si un compte existe avec l'adresse {email}, vous recevrez un email avec les instructions.
+                Si un compte existe avec l&apos;adresse {email}, vous recevrez un email avec les instructions.
               </p>
               <Link href="/connexion">
                 <Button variant="outline" className="mt-4">

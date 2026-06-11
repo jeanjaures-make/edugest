@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -66,7 +66,7 @@ export default function PresencesPage() {
       .order("date", { ascending: false })
       .limit(100)
     if (data) {
-      setRows(data.map((r: any) => ({
+      setRows((data as unknown as { id: string; date: string; statut: string; motif: string | null; eleve: { nom: string; prenom: string } | null; classe: { libelle: string } | null }[]).map((r) => ({
         id: r.id,
         eleve_nom: r.eleve?.nom ?? "",
         eleve_prenom: r.eleve?.prenom ?? "",
@@ -79,14 +79,15 @@ export default function PresencesPage() {
     setLoading(false)
   }
 
-  useEffect(() => {
+  const onInit = useEffectEvent(() => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     loadPresences()
     supabase.from("classes").select("id, libelle").eq("ecole_id", ecoleId).order("libelle").then(({ data }) => {
       if (data) setClasses(data)
     })
-  }, [profile])
+  })
+  useEffect(() => { onInit() }, [])
 
   async function chargerEleves() {
     const ecoleId = profile?.ecole_id
@@ -108,7 +109,7 @@ export default function PresencesPage() {
         .in("eleve_id", elevesData.map((e) => e.id))
         .eq("...classe_id", selectedClasse)
 
-      const existingMap = new Map((existing || []).map((e: any) => [e.eleve_id, e]))
+      const existingMap = new Map(((existing || []) as unknown as { eleve_id: string; statut: string; motif: string | null }[]).map((e) => [e.eleve_id, e]))
       setEleves(elevesData.map((e) => ({
         id: crypto.randomUUID(),
         eleve_id: e.id,
@@ -121,7 +122,8 @@ export default function PresencesPage() {
     setElevesLoading(false)
   }
 
-  useEffect(() => { if (selectedClasse) chargerEleves() }, [selectedClasse, selectedDate])
+  const onClasseOrDateChange = useEffectEvent(() => { if (selectedClasse) chargerEleves() })
+  useEffect(() => { onClasseOrDateChange() }, [selectedClasse, selectedDate])
 
   function setStatut(eleveId: string, statut: string) {
     setEleves((prev) => prev.map((e) => e.eleve_id === eleveId ? { ...e, statut, motif: statut !== "absent" ? "" : e.motif } : e))
@@ -145,8 +147,8 @@ export default function PresencesPage() {
       .eq("date", selectedDate)
       .eq("...classe_id", selectedClasse)
 
-    const existingIds = new Set((existing || []).map((e: any) => e.eleve_id))
-    const existingRecordIds = new Map((existing || []).map((e: any) => [e.eleve_id, e.id]))
+    const existingIds = new Set(((existing || []) as unknown as { eleve_id: string; id: string }[]).map((e) => e.eleve_id))
+    const existingRecordIds = new Map(((existing || []) as unknown as { eleve_id: string; id: string }[]).map((e) => [e.eleve_id, e.id]))
 
     const toInsert = toSave.filter((e) => !existingIds.has(e.eleve_id)).map((e) => ({
       eleve_id: e.eleve_id,
@@ -178,7 +180,7 @@ export default function PresencesPage() {
   const absents = aujourdHui.filter((r) => r.statut === "absent").length
   const retards = aujourdHui.filter((r) => r.statut === "retard").length
 
-  const statutVariant: Record<string, string> = {
+  const statutVariant: Record<string, "success" | "danger" | "warning" | "default"> = {
     present: "success",
     absent: "danger",
     retard: "warning",
@@ -317,7 +319,7 @@ export default function PresencesPage() {
                     <TableCell>{p.classe_libelle}</TableCell>
                     <TableCell>{format(new Date(p.date), "dd/MM/yyyy", { locale: fr })}</TableCell>
                     <TableCell>
-                      <Badge variant={statutVariant[p.statut] as any}>{p.statut}</Badge>
+                      <Badge variant={statutVariant[p.statut]}>{p.statut}</Badge>
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">{p.motif || "-"}</TableCell>
                   </TableRow>

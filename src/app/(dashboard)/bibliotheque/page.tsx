@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -60,7 +60,7 @@ export default function BibliothequePage() {
     ])
     if (ouvRes.data) setOuvrages(ouvRes.data)
     if (pretsRes.data) {
-      setPrets(pretsRes.data.map((r: any) => ({
+      setPrets((pretsRes.data as unknown as { id: string; ouvrage_id: string; date_pret: string; date_retour_prevue: string; date_retour_reelle: string | null; statut: string; eleve: { nom: string; prenom: string } | null; ouvrage: { titre: string } | null }[]).map((r) => ({
         id: r.id,
         eleve_nom: r.eleve?.nom ?? "",
         eleve_prenom: r.eleve?.prenom ?? "",
@@ -75,7 +75,8 @@ export default function BibliothequePage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   async function retournerPret(id: string) {
     await supabase.from("bibliotheque_prets").update({

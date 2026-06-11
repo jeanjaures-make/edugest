@@ -56,8 +56,8 @@ export function MobileMoneyDialog({ ecoleId, onSuccess }: MobileMoneyDialogProps
       setOpen(false)
       reset()
       onSuccess()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
     } finally {
       setSubmitting(false)
     }

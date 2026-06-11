@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -29,7 +29,7 @@ export default function AnneeScolairePage() {
   const [loading, setLoading] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const { data } = await supabase
@@ -39,9 +39,9 @@ export default function AnneeScolairePage() {
       .order("date_debut", { ascending: false })
     if (data) setRows(data)
     setLoading(false)
-  }
+  }, [profile])
 
-  useEffect(() => { load() }, [profile])
+  useEffect(() => { load() }, [load])
 
   async function toggleActive(id: string) {
     const ecoleId = profile?.ecole_id
@@ -62,7 +62,7 @@ export default function AnneeScolairePage() {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Annees scolaires</h1>
-                <p className="text-sm text-muted-foreground">Gerer les annees scolaires de l'etablissement</p>
+                <p className="text-sm text-muted-foreground">Gerer les annees scolaires de l&apos;etablissement</p>
               </div>
             </div>
             <Button onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-2" />Nouvelle annee</Button>
@@ -167,7 +167,7 @@ function AjouterDialog({ open, onOpenChange, ecoleId, onDone }: {
             </div>
           </div>
           <Button type="submit" className="w-full" disabled={saving}>
-            {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creation...</> : <><Save className="h-4 w-4 mr-2" />Creer l'annee scolaire</>}
+            {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creation...</> : <><Save className="h-4 w-4 mr-2" />Creer l&apos;annee scolaire</>}
           </Button>
         </form>
       </DialogContent>

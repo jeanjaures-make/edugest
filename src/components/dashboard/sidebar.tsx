@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { navLinks } from "./nav-links"
 import type { UserRole } from "@/types"
 import { GraduationCap, ChevronLeft, ChevronRight, Menu, X } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useEffectEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { MobileDrawer } from "@/components/ui/mobile-drawer"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,8 @@ export function Sidebar({ role }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const filteredLinks = navLinks.filter((l) => l.roles.includes(role))
 
-  useEffect(() => { setMobileOpen(false) }, [pathname])
+  const onPathnameChange = useEffectEvent(() => { setMobileOpen(false) })
+  useEffect(() => { onPathnameChange() }, [pathname])
 
   const linkElements = filteredLinks.map((link) => {
     const isActive = pathname === link.href || pathname.startsWith(link.href + "/")

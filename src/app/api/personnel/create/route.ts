@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   })
 
   if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 400 })
+    return NextResponse.json({ error: "Erreur lors de la création du compte" }, { status: 400 })
   }
 
   const { data: newProfil, error: profilError } = await svc
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     .single()
 
   if (profilError) {
-    return NextResponse.json({ error: profilError.message }, { status: 400 })
+    return NextResponse.json({ error: "Erreur lors de la création du profil" }, { status: 400 })
   }
 
   const matricule = `PER-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`
@@ -94,8 +94,8 @@ export async function POST(request: Request) {
     .single()
 
   if (personnelError) {
-    return NextResponse.json({ error: personnelError.message }, { status: 400 })
+    return NextResponse.json({ error: "Erreur lors de l'enregistrement du personnel" }, { status: 400 })
   }
 
-  return NextResponse.json({ personnel, tempPassword })
+  return NextResponse.json({ personnel })
 }

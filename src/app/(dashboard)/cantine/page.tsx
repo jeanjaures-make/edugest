@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,7 +46,7 @@ export default function CantinePage() {
       .order("created_at", { ascending: false })
       .limit(100)
     if (data) {
-      setRows(data.map((r: any) => ({
+      setRows((data as unknown as { id: string; type: string; montant: number; statut: string; date_debut: string | null; date_fin: string | null; eleve: { nom: string; prenom: string } | null; classe: { libelle: string } | null }[]).map((r) => ({
         id: r.id,
         eleve_nom: r.eleve?.nom ?? "",
         eleve_prenom: r.eleve?.prenom ?? "",
@@ -61,7 +61,8 @@ export default function CantinePage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   async function supprimer(id: string) {
     if (!confirm("Supprimer cet abonnement ?")) return

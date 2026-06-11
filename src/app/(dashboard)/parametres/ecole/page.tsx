@@ -1,19 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Save, Building, ArrowLeft, Loader2 } from "lucide-react"
+import { Save, Building, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/lib/hooks/use-user"
 
 export default function EcolePage() {
-  const router = useRouter()
   const { profile } = useUser()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -114,7 +113,7 @@ export default function EcolePage() {
 
           <form onSubmit={handleSave} className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="nom">Nom de l'établissement</Label>
+              <Label htmlFor="nom">Nom de l&apos;établissement</Label>
               <Input id="nom" value={nom} onChange={(e) => setNom(e.target.value)} />
             </div>
             <div className="space-y-2">

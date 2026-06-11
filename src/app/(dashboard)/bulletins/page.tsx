@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -35,13 +35,14 @@ export default function BulletinsPage() {
   const [trimestre, setTrimestre] = useState("2")
   const [generating, setGenerating] = useState(false)
 
-  useEffect(() => {
+  const onLoadClasses = useEffectEvent(() => {
     if (!profile?.ecole_id) { setLoading(false); return }
     supabase.from("classes").select("id, libelle").eq("ecole_id", profile.ecole_id).order("libelle").then(({ data }) => {
       if (data) setClasses(data)
       setLoading(false)
     })
-  }, [profile?.ecole_id])
+  })
+  useEffect(() => { onLoadClasses() }, [])
 
   async function loadBulletins() {
     if (!profile?.ecole_id) return
@@ -54,7 +55,8 @@ export default function BulletinsPage() {
     if (data) setBulletins(data as unknown as BulletinRow[])
   }
 
-  useEffect(() => { loadBulletins() }, [profile?.ecole_id, trimestre])
+  const onLoadBulletins = useEffectEvent(() => loadBulletins())
+  useEffect(() => { onLoadBulletins() }, [])
 
   async function generateBulletins() {
     if (!profile?.ecole_id || !classeId) return
@@ -89,25 +91,34 @@ export default function BulletinsPage() {
     const trim = bulletin.trimestre
     const moyenne = (bulletin.moyenne_generale ?? 0).toFixed(2)
     const rang = bulletin.rang || "-"
-    const matricule = (eleve as any)?.matricule || ""
-    const dateNaiss = (eleve as any)?.date_naissance ? format(new Date((eleve as any).date_naissance), "dd/MM/yyyy") : ""
-    const lieuNaiss = (eleve as any)?.lieu_naissance || ""
-    const sexe = (eleve as any)?.sexe || ""
-    const nationalite = (eleve as any)?.nationalite || "Ivoirienne"
-    const today = format(new Date(), "EEEE dd MMMM yyyy", { locale: fr })
+    const matricule = eleve?.matricule ?? ""
+    const dateNaiss = eleve?.date_naissance ? format(new Date(eleve.date_naissance), "dd/MM/yyyy") : ""
+    const lieuNaiss = eleve?.lieu_naissance ?? ""
+    const sexe = eleve?.sexe ?? ""
+    const nationalite = eleve?.nationalite ?? "Ivoirienne"
     const jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
     const mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
     const d = new Date()
     const dateStr = `${jours[d.getDay()]} ${d.getDate()} ${mois[d.getMonth()]} ${d.getFullYear()}`
 
-    const lignesNotes = (notesData || []).map((n: any) => ({
-      matiere: n.evaluation?.matiere?.libelle || "",
+    function escapeHtml(s: string) {
+      return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;")
+    }
+
+    const lignesNotes = ((notesData || []) as unknown as { valeur: number | null; appreciation: string | null; evaluation: { libelle: string; coefficient: number; matiere: { libelle: string } | null } | null }[]).map((n) => ({
+      matiere: escapeHtml(n.evaluation?.matiere?.libelle || ""),
       moy: (n.valeur ?? 0).toFixed(2).replace(".", ","),
       coeff: n.evaluation?.coefficient || 1,
       mCoef: ((n.valeur ?? 0) * (n.evaluation?.coefficient || 1)).toFixed(2).replace(".", ","),
       prof: "",
-      appr: n.appreciation || "",
+      appr: escapeHtml(n.appreciation || ""),
     }))
+
+    const nomEscaped = escapeHtml(nom)
+    const classeEscaped = escapeHtml(classe)
+    const matriculeEscaped = escapeHtml(matricule)
+    const nationaliteEscaped = escapeHtml(nationalite)
+    const lieuNaissEscaped = escapeHtml(lieuNaiss)
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
@@ -156,16 +167,16 @@ export default function BulletinsPage() {
 <!-- 3. IDENTITE ELEVE -->
 <table style="margin-top:4px;">
   <tr>
-    <td colspan="5" style="font-weight:bold; font-size:10px;">${nom}</td>
-    <td style="width:15%;" class="r">Matricule : ${matricule}</td>
+    <td colspan="5" style="font-weight:bold; font-size:10px;">${nomEscaped}</td>
+    <td style="width:15%;" class="r">Matricule : ${matriculeEscaped}</td>
   </tr>
   <tr>
-    <td style="width:13%;">Classe : <span class="b">${classe}</span></td>
+    <td style="width:13%;">Classe : <span class="b">${classeEscaped}</span></td>
     <td style="width:10%;">Effectif : <span class="b">0</span></td>
     <td style="width:10%;">Sexe : <span class="b">${sexe === "M" ? "M" : sexe === "F" ? "F" : ""}</span></td>
-    <td style="width:13%;">Nationalité : <span class="b">${nationalite}</span></td>
+    <td style="width:13%;">Nationalité : <span class="b">${nationaliteEscaped}</span></td>
     <td style="width:15%;">Né(e) le : <span class="b">${dateNaiss}</span></td>
-    <td style="width:13%;">à : <span class="b">${lieuNaiss}</span></td>
+    <td style="width:13%;">à : <span class="b">${lieuNaissEscaped}</span></td>
   </tr>
   <tr>
     <td>Redoublant : <span class="b">Non</span></td>
@@ -185,7 +196,7 @@ export default function BulletinsPage() {
     <th style="width:15%;">PROFESSEUR</th>
     <th style="width:31%;">APPRECIATION / EMARGEMENT</th>
   </tr>
-  ${lignesNotes.length > 0 ? lignesNotes.map((l: any) => `<tr>
+  ${lignesNotes.length > 0 ? lignesNotes.map((l: { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }) => `<tr>
     <td style="font-size:7px;">${l.matiere}</td>
     <td class="c" style="font-size:7px;">${l.moy}</td>
     <td class="c" style="font-size:7px;">${l.coeff}</td>
@@ -196,8 +207,8 @@ export default function BulletinsPage() {
   </tr>`).join("") : `<tr><td colspan="7" class="c" style="padding:8px; font-size:8px;">Aucune note saisie</td></tr>`}
   <tr>
     <td colspan="2" class="b" style="font-size:7px;">TOTAUX</td>
-    <td class="c b" style="font-size:7px;">${lignesNotes.reduce((s: number, l: any) => s + l.coeff, 0)}</td>
-    <td class="c b" style="font-size:7px;">${lignesNotes.reduce((s: number, l: any) => s + parseFloat(l.mCoef.replace(",", ".")), 0).toFixed(2).replace(".", ",")}</td>
+    <td class="c b" style="font-size:7px;">${lignesNotes.reduce((s: number, l: { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }) => s + l.coeff, 0)}</td>
+    <td class="c b" style="font-size:7px;">${lignesNotes.reduce((s: number, l: { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }) => s + parseFloat(l.mCoef.replace(",", ".")), 0).toFixed(2).replace(".", ",")}</td>
     <td colspan="3" style="font-size:7px;"></td>
   </tr>
 </table>
@@ -272,12 +283,12 @@ export default function BulletinsPage() {
       <table style="height:100%;">
         <tr><td class="b bg-gray" style="font-size:7px;">Appréciation du Conseil de classe</td></tr>
         <tr><td style="font-size:7px; font-style:italic;">
-          ${bulletin.appreciation || "Résultat passable, peut mieux faire !"}
+          ${escapeHtml(bulletin.appreciation || "Résultat passable, peut mieux faire !")}
         </td></tr>
         <tr><td style="font-size:7px;">
           Le Professeur Principal :<br>
           <div style="height:15px;"></div>
-          ${profile?.nom ? "M. " + profile.nom : ""}
+          ${profile?.nom ? "M. " + escapeHtml(profile.nom) : ""}
         </td></tr>
       </table>
     </td>

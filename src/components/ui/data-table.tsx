@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useEffectEvent } from "react"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
@@ -77,7 +78,8 @@ export function DataTable<T>({
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize)
 
-  React.useEffect(() => { setPage(0) }, [search, sortKey, sortDir])
+  const onFiltersChange = useEffectEvent(() => { setPage(0) })
+  React.useEffect(() => { onFiltersChange() }, [search, sortKey, sortDir])
 
   function toggleSort(key: string) {
     if (sortKey === key) {

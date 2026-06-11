@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -52,7 +52,7 @@ export default function TransportPage() {
     ])
     if (routesRes.data) setRoutes(routesRes.data)
     if (inscRes.data) {
-      setInscriptions(inscRes.data.map((r: any) => ({
+      setInscriptions((inscRes.data as unknown as { id: string; type: string; statut: string; eleve: { nom: string; prenom: string } | null; route: { libelle: string } | null }[]).map((r) => ({
         id: r.id,
         eleve_nom: r.eleve?.nom ?? "",
         eleve_prenom: r.eleve?.prenom ?? "",
@@ -64,7 +64,8 @@ export default function TransportPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   async function supprimerRoute(id: string) {
     if (!confirm("Supprimer cette route ?")) return

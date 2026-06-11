@@ -2,15 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { createClient } from "@supabase/supabase-js"
 import { Search, Mail, Phone, MapPin, Users, School } from "lucide-react"
 import { Input } from "@/components/ui/input"
-
-const svc = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
 
 interface EcoleWithStats {
   id: string
@@ -31,17 +24,9 @@ export default function SuperadminEcolesPage() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await svc.from("ecoles").select("*").order("created_at", { ascending: false })
-      if (!data) { setLoading(false); return }
-
-      const withStats = await Promise.all(
-        data.map(async (ecole) => {
-          const { count: eleves } = await svc.from("eleves").select("*", { count: "exact", head: true }).eq("ecole_id", ecole.id)
-          const { count: personnel } = await svc.from("personnel").select("*", { count: "exact", head: true }).eq("ecole_id", ecole.id)
-          return { ...ecole, eleves_count: eleves ?? 0, personnel_count: personnel ?? 0 }
-        })
-      )
-      setSchools(withStats)
+      const res = await fetch("/api/superadmin/ecoles")
+      const json = await res.json()
+      setSchools(json.schools)
       setLoading(false)
     }
     load()

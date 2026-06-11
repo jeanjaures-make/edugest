@@ -1,14 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { PageTransition } from "@/components/animations/page-transition"
 import { FadeInView } from "@/components/animations/fade-in-view"
-import { Smartphone, FileText } from "lucide-react"
-import { CountUp } from "@/components/animations/count-up"
+import { FileText } from "lucide-react"
 import { formatMontant } from "@/lib/utils"
 import { exportCSV } from "@/lib/export"
 import { supabase } from "@/lib/supabase"
@@ -57,43 +56,41 @@ export default function PaiementsPage() {
   const [stats, setStats] = useState({ mois: 0, orange_money: 0, mtn_momo: 0, especes: 0 })
   const [refreshKey, setRefreshKey] = useState(0)
 
-  useEffect(() => {
+  const onLoad = useEffectEvent(async () => {
     if (!profile?.ecole_id) return
-    async function load() {
-      const { data } = await supabase
-        .from("paiements")
-        .select("id, reference, montant, methode, statut, telephone, date_paiement, eleve:eleves(nom, prenom)")
-        .order("date_paiement", { ascending: false })
+    const { data } = await supabase
+      .from("paiements")
+      .select("id, reference, montant, methode, statut, telephone, date_paiement, eleve:eleves(nom, prenom)")
+      .order("date_paiement", { ascending: false })
 
-      if (data) {
-        const rows: PaiementRow[] = data.map((p: any) => ({
-          id: p.id,
-          reference: p.reference,
-          montant: p.montant,
-          methode: p.methode,
-          statut: p.statut,
-          telephone: p.telephone,
-          date_paiement: p.date_paiement,
-          eleve_nom: p.eleve?.nom ?? "",
-          eleve_prenom: p.eleve?.prenom ?? "",
-        }))
-        setPaiements(rows)
+    if (data) {
+      const rows: PaiementRow[] = (data as unknown as { id: string; reference: string; montant: number; methode: string; statut: string; telephone: string | null; date_paiement: string; eleve: { nom: string; prenom: string } | null }[]).map((p) => ({
+        id: p.id,
+        reference: p.reference,
+        montant: p.montant,
+        methode: p.methode,
+        statut: p.statut,
+        telephone: p.telephone,
+        date_paiement: p.date_paiement,
+        eleve_nom: p.eleve?.nom ?? "",
+        eleve_prenom: p.eleve?.prenom ?? "",
+      }))
+      setPaiements(rows)
 
-        const now = new Date()
-        const debutMois = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-        const confirmes = rows.filter((p) => p.statut === "confirme")
-        const duMois = confirmes.filter((p) => p.date_paiement >= debutMois)
-        setStats({
-          mois: duMois.reduce((s, p) => s + p.montant, 0),
-          orange_money: duMois.filter((p) => p.methode === "orange_money").reduce((s, p) => s + p.montant, 0),
-          mtn_momo: duMois.filter((p) => p.methode === "mtn_momo").reduce((s, p) => s + p.montant, 0),
-          especes: duMois.filter((p) => p.methode === "especes").reduce((s, p) => s + p.montant, 0),
-        })
-      }
-      setLoading(false)
+      const now = new Date()
+      const debutMois = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      const confirmes = rows.filter((p) => p.statut === "confirme")
+      const duMois = confirmes.filter((p) => p.date_paiement >= debutMois)
+      setStats({
+        mois: duMois.reduce((s, p) => s + p.montant, 0),
+        orange_money: duMois.filter((p) => p.methode === "orange_money").reduce((s, p) => s + p.montant, 0),
+        mtn_momo: duMois.filter((p) => p.methode === "mtn_momo").reduce((s, p) => s + p.montant, 0),
+        especes: duMois.filter((p) => p.methode === "especes").reduce((s, p) => s + p.montant, 0),
+      })
     }
-    load()
-  }, [profile, refreshKey])
+    setLoading(false)
+  })
+  useEffect(() => { onLoad() }, [refreshKey])
 
   function handleExport() {
     exportCSV("paiements",

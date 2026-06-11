@@ -44,7 +44,7 @@ export async function GET() {
     .order("nom", { ascending: true })
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Erreur lors de la récupération des utilisateurs" }, { status: 500 })
   }
 
   return NextResponse.json(profils)

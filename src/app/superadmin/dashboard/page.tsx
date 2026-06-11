@@ -3,13 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Building2, Users, School, TrendingUp } from "lucide-react"
-import { createClient } from "@supabase/supabase-js"
-
-const svc = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+import type { Ecole } from "@/types"
 
 interface Stats {
   totalSchools: number
@@ -20,30 +14,14 @@ interface Stats {
 
 export default function SuperadminDashboardPage() {
   const [stats, setStats] = useState<Stats>({ totalSchools: 0, totalStudents: 0, totalTeachers: 0, totalUsers: 0 })
-  const [recentSchools, setRecentSchools] = useState<any[]>([])
+  const [recentSchools, setRecentSchools] = useState<Ecole[]>([])
 
   useEffect(() => {
     async function load() {
-      const [
-        { count: schools },
-        { count: students },
-        { count: teachers },
-        { count: users },
-        { data: schoolsData },
-      ] = await Promise.all([
-        svc.from("ecoles").select("*", { count: "exact", head: true }),
-        svc.from("eleves").select("*", { count: "exact", head: true }),
-        svc.from("personnel").select("*", { count: "exact", head: true }).eq("type", "enseignant"),
-        svc.from("profils").select("*", { count: "exact", head: true }),
-        svc.from("ecoles").select("id, nom, email, telephone, created_at").order("created_at", { ascending: false }).limit(5),
-      ])
-      setStats({
-        totalSchools: schools ?? 0,
-        totalStudents: students ?? 0,
-        totalTeachers: teachers ?? 0,
-        totalUsers: users ?? 0,
-      })
-      setRecentSchools(schoolsData ?? [])
+      const res = await fetch("/api/superadmin/stats")
+      const json = await res.json()
+      setStats(json.stats)
+      setRecentSchools(json.recentSchools)
     }
     load()
   }, [])

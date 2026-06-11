@@ -81,19 +81,19 @@ export default function DashboardPage() {
       if (inscriptionsData) setTotalInscriptions(inscriptionsData.length)
 
       if (presencesData && presencesData.length > 0) {
-        const presents = presencesData.filter((p: any) => p.statut === "present" || p.statut === "retard").length
+        const presents = (presencesData as unknown as { statut: string }[]).filter((p) => p.statut === "present" || p.statut === "retard").length
         setTauxPresence(Math.round((presents / presencesData.length) * 100))
       }
 
       if (echeanciersData) {
-        const total = echeanciersData.reduce((s: number, e: any) => s + (e.montant_restant || 0), 0)
+        const total = (echeanciersData as unknown as { montant_restant: number }[]).reduce((s: number, e) => s + (e.montant_restant || 0), 0)
         setTotalImpayes(total)
       }
 
       if (inscriptionsAnnee) {
         const counts = mois.map((m) => ({
           month: m,
-          inscriptions: inscriptionsAnnee.filter((i: any) => {
+          inscriptions: (inscriptionsAnnee as unknown as { created_at: string }[]).filter((i) => {
             const d = new Date(i.created_at)
             return d.getMonth() === mois.indexOf(m) + 8 || (mois.indexOf(m) < 4 && d.getFullYear() === new Date().getFullYear() + 1)
           }).length,
@@ -106,8 +106,7 @@ export default function DashboardPage() {
       const acts: { action: string; detail: string; time: string }[] = []
 
       if (paiementsRecents) {
-        paiementsRecents.forEach((p: any) => {
-          const nom = `${p.eleve?.prenom || ""} ${p.eleve?.nom || ""}`
+        (paiementsRecents as unknown as { montant: number; methode: string; created_at: string; eleve: { nom: string; prenom: string } | null }[]).forEach((p) => {
           acts.push({
             action: "Paiement reçu",
             detail: `${p.methode === "orange_money" ? "Orange Money" : p.methode === "mtn_momo" ? "MTN MoMo" : p.methode} - ${formatMontant(p.montant)}`,
@@ -116,7 +115,7 @@ export default function DashboardPage() {
         })
       }
       if (inscriptionsRecentes) {
-        inscriptionsRecentes.forEach((i: any) => {
+        (inscriptionsRecentes as unknown as { created_at: string; eleve: { nom: string; prenom: string } | null; classe: { libelle: string } | null }[]).forEach((i) => {
           const nom = `${i.eleve?.prenom || ""} ${i.eleve?.nom || ""}`
           acts.push({
             action: "Nouvelle inscription",
@@ -129,14 +128,14 @@ export default function DashboardPage() {
       setActivites(acts)
 
       if (niveauxData && elevesCount) {
-        const niveauIds = niveauxData.map((n: any) => n.id)
+        const niveauIds = (niveauxData as unknown as { id: string; libelle: string }[]).map((n) => n.id)
         const { data: classesData } = await supabase
           .from("classes")
           .select("id, niveau_id")
           .in("niveau_id", niveauIds)
           .eq("ecole_id", ecoleId)
         if (classesData) {
-          const classeIds = classesData.map((c: any) => c.id)
+          const classeIds = (classesData as unknown as { id: string; niveau_id: string }[]).map((c) => c.id)
           const { data: elevesParClasse } = await supabase
             .from("eleves")
             .select("classe_id, sexe")
@@ -144,8 +143,8 @@ export default function DashboardPage() {
             .eq("ecole_id", ecoleId)
             .eq("statut", "actif")
           if (elevesParClasse) {
-            const niveauMap = new Map(classesData.map((c: any) => [c.id, c.niveau_id]))
-            const niveauLibelle = new Map(niveauxData.map((n: any) => [n.id, n.libelle]))
+            const niveauMap = new Map((classesData as unknown as { id: string; niveau_id: string }[]).map((c) => [c.id, c.niveau_id]))
+            const niveauLibelle = new Map((niveauxData as unknown as { id: string; libelle: string }[]).map((n) => [n.id, n.libelle]))
             const parNiveau: Record<string, { garcons: number; filles: number }> = {}
             for (const e of elevesParClasse) {
               const nId = niveauMap.get(e.classe_id)

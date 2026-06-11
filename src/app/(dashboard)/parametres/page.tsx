@@ -20,7 +20,7 @@ export default function ParametresPage() {
             </div>
             <div className="flex-1">
               <h3 className="font-medium">Mon école</h3>
-              <p className="text-sm text-gray-500">Modifier les informations de l'établissement</p>
+              <p className="text-sm text-gray-500">Modifier les informations de l&apos;établissement</p>
             </div>
             <div className="text-gray-400">→</div>
           </CardContent>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,7 +9,7 @@ import { MessageSquare, Send, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { supabase } from "@/lib/supabase"
-import { useUser } from "@/lib/hooks/use-user"
+import { useUser, type UserProfile } from "@/lib/hooks/use-user"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 
@@ -41,7 +41,8 @@ export default function CommunicationPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   return (
     <div className="space-y-6">
@@ -102,7 +103,7 @@ export default function CommunicationPage() {
   )
 }
 
-function NouveauMessageForm({ onSent, profile }: { onSent: () => void; profile: any }) {
+function NouveauMessageForm({ onSent, profile }: { onSent: () => void; profile: UserProfile | null }) {
   const [saving, setSaving] = useState(false)
   const [destinataire_type, setDestType] = useState("tous")
   const [type, setType] = useState("info")

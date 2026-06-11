@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,10 +12,10 @@ import { FadeInView } from "@/components/animations/fade-in-view"
 import { CountUp } from "@/components/animations/count-up"
 import { motion } from "framer-motion"
 import { staggerContainer, statCardItem } from "@/lib/animations"
-import { Save, Plus, BookOpen, Check, Loader2 } from "lucide-react"
+import { Save, Plus, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/lib/hooks/use-user"
-import { Skeleton } from "@/components/ui/skeleton"
+
 
 interface ClasseItem { id: string; libelle: string }
 interface MatiereItem { id: string; libelle: string; coefficient: number }
@@ -43,7 +43,7 @@ export default function NotesPage() {
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null)
   const noteRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  useEffect(() => {
+  const onLoadInitial = useEffectEvent(() => {
     if (!profile?.ecole_id) { setLoading(false); return }
     Promise.all([
       supabase.from("classes").select("id, libelle").eq("ecole_id", profile.ecole_id).order("libelle"),
@@ -53,9 +53,10 @@ export default function NotesPage() {
       if (m.data) setMatieres(m.data)
       setLoading(false)
     })
-  }, [profile?.ecole_id])
+  })
+  useEffect(() => { onLoadInitial() }, [])
 
-  useEffect(() => {
+  const onClasseIdChange = useEffectEvent(() => {
     if (!classeId) { setEleves([]); setNotes([]); return }
     supabase.from("eleves").select("id, nom, prenom").eq("classe_id", classeId).eq("statut", "actif").order("nom").then(({ data }) => {
       if (data) {
@@ -63,9 +64,10 @@ export default function NotesPage() {
         setNotes(data.map((e) => ({ eleve_id: e.id, note: "", appreciation: "" })))
       }
     })
-  }, [classeId])
+  })
+  useEffect(() => { onClasseIdChange() }, [classeId])
 
-  useEffect(() => {
+  const onFiltersChange = useEffectEvent(() => {
     if (!classeId || !matiereId) { setEvals([]); setSelectedEvalId(""); return }
     supabase.from("evaluations").select("id, libelle, type, coefficient, date")
       .eq("classe_id", classeId).eq("matiere_id", matiereId).eq("trimestre", parseInt(trimestre))
@@ -73,9 +75,10 @@ export default function NotesPage() {
         setEvals(data ?? [])
         setSelectedEvalId("")
       })
-  }, [classeId, matiereId, trimestre])
+  })
+  useEffect(() => { onFiltersChange() }, [classeId, matiereId, trimestre])
 
-  useEffect(() => {
+  const onEvalChange = useEffectEvent(() => {
     if (!selectedEvalId) return
     supabase.from("notes").select("*").eq("evaluation_id", selectedEvalId).then(({ data }) => {
       if (data && data.length > 0) {
@@ -87,7 +90,8 @@ export default function NotesPage() {
         setNotes((prev) => prev.map((n) => ({ ...n, id: undefined, note: "", appreciation: "" })))
       }
     })
-  }, [selectedEvalId])
+  })
+  useEffect(() => { onEvalChange() }, [selectedEvalId])
 
   async function createEvaluation() {
     if (!profile?.ecole_id || !classeId || !matiereId || !evalLibelle) return

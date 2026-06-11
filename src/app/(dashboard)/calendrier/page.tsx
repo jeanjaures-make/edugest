@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, ChevronLeft, ChevronRight, Trash2, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -53,7 +53,8 @@ export default function CalendrierPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile, currentMonth])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   async function supprimer(id: string) {
     if (!confirm("Supprimer cet événement ?")) return
@@ -86,7 +87,7 @@ export default function CalendrierPage() {
         <Button variant="outline" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>Aujourd'hui</Button>
+        <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>Aujourd&apos;hui</Button>
       </div>
 
       {loading ? (

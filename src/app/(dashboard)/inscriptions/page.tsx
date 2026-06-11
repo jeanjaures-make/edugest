@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -49,7 +49,7 @@ export default function InscriptionsPage() {
       .eq("eleve.ecole_id", profile.ecole_id)
       .order("date_inscription", { ascending: false })
     if (data) {
-      setRows(data.map((r: any) => ({
+      setRows((data as unknown as { id: string; eleve_id: string; date_inscription: string; frais_inscription: number; statut: string; eleve: { nom: string; prenom: string } | null; classe: { libelle: string } | null }[]).map((r) => ({
         id: r.id,
         eleve_id: r.eleve_id,
         eleve_nom: r.eleve?.nom ?? "",
@@ -63,7 +63,8 @@ export default function InscriptionsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile?.ecole_id])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   async function updateStatut(id: string, statut: string) {
     await supabase.from("inscriptions").update({ statut }).eq("id", id); load()
@@ -353,7 +354,7 @@ function NouvelleInscriptionDialog({ onCreated, ecoleId }: { onCreated: () => vo
           {selectedClasse && (
             <div className="rounded-lg bg-gray-50 p-3 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Frais d'inscription</span>
+                <span className="text-gray-500">Frais d&apos;inscription</span>
                 <span className="font-bold">{formatMontant(selectedClasse.frais_inscription)}</span>
               </div>
               <div className="flex justify-between">

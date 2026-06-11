@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(parsed)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("OCR Error:", error)
     return NextResponse.json({ error: "Erreur interne du serveur" }, { status: 500 })
   }

@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Plus, Trash2 } from "lucide-react"
@@ -39,7 +38,7 @@ export default function EmploiDuTempsPage() {
 
   const [newCours, setNewCours] = useState({ matiere_id: "", enseignant_id: "", jour: "1", heure_debut: "08:00", heure_fin: "09:00", salle: "" })
 
-  useEffect(() => {
+  const onLoadInitial = useEffectEvent(() => {
     if (!profile?.ecole_id) { setLoading(false); return }
     Promise.all([
       supabase.from("classes").select("id, libelle").eq("ecole_id", profile.ecole_id).order("libelle"),
@@ -51,7 +50,8 @@ export default function EmploiDuTempsPage() {
       if (e.data) setEnseignants(e.data)
       setLoading(false)
     })
-  }, [profile?.ecole_id])
+  })
+  useEffect(() => { onLoadInitial() }, [])
 
   function loadCours() {
     if (!classeId) { setCours([]); return }
@@ -64,7 +64,8 @@ export default function EmploiDuTempsPage() {
       .then(({ data }) => { if (data) setCours(data as unknown as CoursItem[]) })
   }
 
-  useEffect(() => { loadCours() }, [classeId])
+  const onClasseChange = useEffectEvent(() => loadCours())
+  useEffect(() => { onClasseChange() }, [classeId])
 
   async function addCours() {
     if (!classeId || !newCours.matiere_id) return
@@ -161,7 +162,7 @@ export default function EmploiDuTempsPage() {
       </div>
 
       {!classeId ? (
-        <Card><CardContent className="p-12 text-center text-gray-400">Sélectionnez une classe pour voir l'emploi du temps</CardContent></Card>
+        <Card><CardContent className="p-12 text-center text-gray-400">Sélectionnez une classe pour voir l&apos;emploi du temps</CardContent></Card>
       ) : (
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">

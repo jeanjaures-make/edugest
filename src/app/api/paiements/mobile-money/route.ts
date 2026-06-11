@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       data: paiement,
       recu_url: `/api/recus/${reference}`,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Mobile Money Error:", error)
     return NextResponse.json({ error: "Erreur de paiement" }, { status: 500 })
   }

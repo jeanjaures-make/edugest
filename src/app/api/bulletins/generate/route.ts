@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   }))
 
   const { error } = await supabase.from("bulletins").insert(bulletins)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return NextResponse.json({ error: "Erreur lors de la génération des bulletins" }, { status: 400 })
 
   return NextResponse.json({ count: bulletins.length })
 }

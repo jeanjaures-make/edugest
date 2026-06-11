@@ -466,13 +466,13 @@ export default function EleveDetailPage() {
 function ModifierEleveDialog({ open, onOpenChange, form, setForm, saving, error, onSave }: {
   open: boolean; onOpenChange: (v: boolean) => void
   form: { nom: string; prenom: string; date_naissance: string; lieu_naissance: string; sexe: string; nationalite: string; adresse: string; telephone: string; email: string; statut: string }
-  setForm: (f: any) => void; saving: boolean; error: string; onSave: () => void
+  setForm: (f: { nom: string; prenom: string; date_naissance: string; lieu_naissance: string; sexe: string; nationalite: string; adresse: string; telephone: string; email: string; statut: string }) => void; saving: boolean; error: string; onSave: () => void
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Modifier l'élève</DialogTitle>
+          <DialogTitle>Modifier l&apos;élève</DialogTitle>
         </DialogHeader>
         {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
         <form onSubmit={(e) => { e.preventDefault(); onSave() }} className="space-y-4">

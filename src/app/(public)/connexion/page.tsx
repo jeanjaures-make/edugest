@@ -38,8 +38,8 @@ export default function ConnexionPage() {
 
       router.push("/dashboard")
       router.refresh()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
     } finally {
       setLoading(false)
     }

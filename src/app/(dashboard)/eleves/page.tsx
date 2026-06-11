@@ -43,7 +43,7 @@ export default function ElevesPage() {
         .eq("ecole_id", ecoleId)
         .order("nom", { ascending: true })
       if (data) {
-        const rows = data.map((e: any) => ({
+        const rows = (data as unknown as { id: string; matricule: string; nom: string; prenom: string; sexe: string | null; statut: string; classe: { libelle: string } | null }[]).map((e) => ({
           id: e.id,
           matricule: e.matricule,
           nom: e.nom,

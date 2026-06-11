@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       adresse: school.adresse || "",
       telephone: school.telephone || "",
       email: school.email || "",
+      logo_url: school.logo_url || null,
       code_etablissement: school.code_etablissement || `ETAB-${Date.now().toString().slice(-6)}`,
     })
     .select()
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
   if (ecoleError) {
     return NextResponse.json(
-      { error: "SCHOOL_FAILED", message: ecoleError.message },
+      { error: "SCHOOL_FAILED", message: "Erreur lors de la création de l'établissement" },
       { status: 400 }
     )
   }
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   if (authError || !authUser.user) {
     await svc.from("ecoles").delete().eq("id", ecole.id)
     return NextResponse.json(
-      { error: "AUTH_FAILED", message: authError?.message || "Échec création utilisateur" },
+      { error: "AUTH_FAILED", message: "Échec de la création du compte administrateur" },
       { status: 400 }
     )
   }
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     await svc.auth.admin.deleteUser(authUser.user.id)
     await svc.from("ecoles").delete().eq("id", ecole.id)
     return NextResponse.json(
-      { error: "PROFIL_FAILED", message: profilError.message },
+      { error: "PROFIL_FAILED", message: "Erreur lors de la création du profil" },
       { status: 400 }
     )
   }

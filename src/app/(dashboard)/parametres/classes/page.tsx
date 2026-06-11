@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Pencil, Trash2, Save, X } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/lib/hooks/use-user"
 
@@ -47,10 +47,11 @@ export default function ClassesPage() {
     if (a.data) setAssignations(a.data as unknown as typeof assignations)
   }
 
-  useEffect(() => {
+  const onReload = useEffectEvent(() => {
     if (!profile?.ecole_id) { setLoading(false); return }
     reload().finally(() => setLoading(false))
-  }, [profile?.ecole_id])
+  })
+  useEffect(() => { onReload() }, [])
 
   async function addNiveau() {
     if (!profile?.ecole_id || !newNiveau.libelle || !newNiveau.code) return

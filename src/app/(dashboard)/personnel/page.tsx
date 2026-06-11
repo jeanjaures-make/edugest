@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -51,7 +51,8 @@ export default function PersonnelPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   const actifs = rows.filter((r) => r.statut === "actif").length
   const enseignants = rows.filter((r) => r.type === "enseignant").length
@@ -245,7 +246,7 @@ export default function PersonnelPage() {
 function ModifierMembreDialog({ open, onOpenChange, form, setForm, saving, error, target, onSave }: {
   open: boolean; onOpenChange: (v: boolean) => void
   form: { nom: string; prenom: string; telephone: string; type: string; statut: string }
-  setForm: (f: any) => void; saving: boolean; error: string
+  setForm: (f: { nom: string; prenom: string; telephone: string; type: string; statut: string }) => void; saving: boolean; error: string
   target: PersonnelRow | null; onSave: () => void
 }) {
   return (

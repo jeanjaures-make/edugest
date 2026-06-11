@@ -65,8 +65,8 @@ export default function NouvelElevePage() {
       }
 
       router.push(`/eleves/${data.eleve.id}`)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
       setSaving(false)
     }
   }
@@ -83,7 +83,7 @@ export default function NouvelElevePage() {
 
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Nouvel élève</h2>
-        <p className="text-sm text-gray-500">Ajouter un élève à l'établissement</p>
+        <p className="text-sm text-gray-500">Ajouter un élève à l&apos;établissement</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
@@ -152,7 +152,7 @@ export default function NouvelElevePage() {
           <CardHeader><CardTitle className="text-lg">Classe</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <Label htmlFor="classe_id">Classe d'affectation</Label>
+              <Label htmlFor="classe_id">Classe d&apos;affectation</Label>
               <select
                 id="classe_id"
                 className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

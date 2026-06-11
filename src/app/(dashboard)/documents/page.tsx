@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useEffectEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -42,7 +42,7 @@ export default function DocumentsPage() {
       .order("created_at", { ascending: false })
       .limit(100)
     if (data) {
-      setRows(data.map((r: any) => ({
+      setRows((data as unknown as { id: string; nom: string; type: string; url: string; created_at: string; eleve: { nom: string; prenom: string } | null }[]).map((r) => ({
         id: r.id,
         nom: r.nom,
         type: r.type,
@@ -55,7 +55,8 @@ export default function DocumentsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [profile])
+  const onLoad = useEffectEvent(() => load())
+  useEffect(() => { onLoad() }, [])
 
   const total = rows.length
   const bulletins = rows.filter((r) => r.type === "bulletin").length
@@ -181,7 +182,7 @@ function UploadDocumentDialog({ onCreated, ecoleId }: { onCreated: () => void; e
             <select required className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" value={type} onChange={(e) => setType(e.target.value)}>
               <option value="cni">CNI</option>
               <option value="acte_naissance">Acte de naissance</option>
-              <option value="photo">Photo d'identité</option>
+              <option value="photo">Photo d&apos;identité</option>
               <option value="bulletin">Bulletin</option>
               <option value="certificat">Certificat</option>
               <option value="autre">Autre</option>

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
   if (error || !data.user) {
     return Response.json(
-      { error: "SIGNUP_FAILED", message: error?.message || "Échec de l'inscription" },
+      { error: "SIGNUP_FAILED", message: "Échec de l'inscription" },
       { status: 400 }
     )
   }
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
   if (profilError) {
     return Response.json(
-      { error: "PROFIL_FAILED", message: profilError.message },
+      { error: "PROFIL_FAILED", message: "Erreur lors de la création du profil" },
       { status: 400 }
     )
   }

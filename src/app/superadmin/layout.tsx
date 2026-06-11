@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useEffectEvent } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
@@ -22,7 +22,8 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   const [user, setUser] = useState<{ email: string } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  useEffect(() => { setMobileOpen(false) }, [pathname])
+  const onPathnameChange = useEffectEvent(() => { setMobileOpen(false) })
+  useEffect(() => { onPathnameChange() }, [pathname])
 
   const checkAuth = useCallback(async () => {
     const { data: { user: authUser }, error } = await supabase.auth.getUser()
@@ -43,7 +44,8 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
     setLoading(false)
   }, [router])
 
-  useEffect(() => { checkAuth() }, [checkAuth])
+  const onCheckAuth = useEffectEvent(() => { checkAuth() })
+  useEffect(() => { onCheckAuth() }, [])
 
   async function handleSignOut() {
     await supabase.auth.signOut()

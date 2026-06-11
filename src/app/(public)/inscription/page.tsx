@@ -26,7 +26,7 @@ export default function InscriptionPage() {
     nom: "", prenom: "", date_naissance: "", lieu_naissance: "",
     sexe: "", nationalite: "Ivoirienne",
   })
-  const [documents, setDocuments] = useState<File[]>([])
+
 
   const steps = [
     { key: "parent", label: "Parent", number: 1 },
@@ -75,8 +75,8 @@ export default function InscriptionPage() {
       }
       router.push("/dashboard")
       router.refresh()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue")
     } finally {
       setLoading(false)
     }
@@ -201,7 +201,7 @@ export default function InscriptionPage() {
           {step === "documents" && (
             <div className="space-y-6">
               <p className="text-sm text-gray-500">
-                Téléchargez une photo ou un scan des documents suivants. L'OCR extraira automatiquement les informations.
+                Téléchargez une photo ou un scan des documents suivants. L&apos;OCR extraira automatiquement les informations.
               </p>
               {["CNI du parent", "Acte de naissance de l'enfant", "Photo d'identité de l'enfant"].map((doc) => (
                 <div key={doc} className="rounded-lg border-2 border-dashed p-6 text-center hover:border-blue-400 cursor-pointer">
