@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  'https://ebhiqzribyoytavzmned.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaGlxenJpYnlveXRhdnptbmVkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk5MzU0NSwiZXhwIjoyMDk2NTY5NTQ1fQ.6x1KwetPFUNxgEZDBZqHRBJeKgWLtvF6P9_f2I5Uiqc',
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false }
+});
 
 async function fixRLS() {
   console.log('Fixing profils RLS policy (removing recursive call)...');
@@ -22,7 +23,7 @@ async function fixRLS() {
   
   const { Pool } = await import('pg');
   const pool = new Pool({
-    connectionString: `postgresql://postgres:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaGlxenJpYnlveXRhdnptbmVkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk5MzU0NSwiZXhwIjoyMDk2NTY5NTQ1fQ.6x1KwetPFUNxgEZDBZqHRBJeKgWLtvF6P9_f2I5Uiqc@db.ebhiqzribyoytavzmned.supabase.co:5432/postgres`,
+    connectionString: `postgresql://postgres:${serviceRoleKey}@db.ebhiqzribyoytavzmned.supabase.co:5432/postgres`,
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 15000,
   });

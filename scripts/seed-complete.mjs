@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://ebhiqzribyoytavzmned.supabase.co';
-const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaGlxenJpYnlveXRhdnptbmVkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk5MzU0NSwiZXhwIjowOTY1Njk1NDV9.6x1KwetPFUNxgEZDBZqHRBJeKgWLtvF6P9_f2I5Uiqc';
-// Fixed key - it got mangled by the truncation. Let me use it properly.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabase = createClient(supabaseUrl, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaGlxenJpYnlveXRhdnptbmVkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk5MzU0NSwiZXhwIjoyMDk2NTY5NTQ1fQ.6x1KwetPFUNxgEZDBZqHRBJeKgWLtvF6P9_f2I5Uiqc', {
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
