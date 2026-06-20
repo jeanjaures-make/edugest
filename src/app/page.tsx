@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
-import { Menu, X, Check, ArrowRight, GraduationCap, Users, BarChart3, Shield, BookOpen, CreditCard, Smartphone, Clock, MessageSquare, FileText, Calculator, ChevronRight } from "lucide-react"
+import { motion, useScroll, AnimatePresence } from "framer-motion"
+import { Menu, X, Check, ArrowRight, GraduationCap, Users, BarChart3, Shield, CreditCard, Smartphone, Clock, MessageSquare, FileText, Calculator, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/shared/logo"
 
@@ -62,7 +62,8 @@ function useCountUp(end: number, duration = 2) {
 
 function StatItem({ label, value }: { label: string; value: string }) {
   const num = parseInt(value.replace(/\D/g, ""))
-  const display = isNaN(num) ? value : useCountUp(num).toLocaleString("fr-FR") + (value.includes("+") ? "+" : "")
+  const count = useCountUp(isNaN(num) ? 0 : num)
+  const display = isNaN(num) ? value : count.toLocaleString("fr-FR") + (value.includes("+") ? "+" : "")
   return (
     <motion.div variants={fadeIn} className="text-center p-6">
       <div className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-orange-400 via-primary to-accent bg-clip-text text-transparent">{display}</div>
@@ -75,7 +76,6 @@ function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const { scrollY } = useScroll()
-  const bgOpacity = useTransform(scrollY, [0, 80], [0, 1])
 
   useEffect(() => {
     const u = scrollY.on("change", (v) => setScrolled(v > 20))

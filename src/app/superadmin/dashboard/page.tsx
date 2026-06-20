@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Building2, Users, School, TrendingUp, Mail, Phone, MapPin } from "lucide-react"
+import { Building2, Users, School, TrendingUp } from "lucide-react"
 
 interface Stats {
   totalSchools: number

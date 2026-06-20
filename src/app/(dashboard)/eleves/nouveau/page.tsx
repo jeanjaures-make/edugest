@@ -42,7 +42,8 @@ function extractFields(text: string): Record<string, string> {
     const d = fields["date_naissance"].replace(/\s+/g, "/")
     const parts = d.split("/")
     if (parts.length === 3) {
-      let [d1, d2, d3] = parts
+      const [d1, d2] = parts
+      let d3 = parts[2]
       if (d3.length === 2) d3 = "20" + d3
       if (d1.length === 4) {
         fields["date_naissance"] = `${d1}-${d2.padStart(2, "0")}-${d3.padStart(2, "0")}`
