@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Save, Upload, Scan, X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import Image from "next/image"
 import { useUser } from "@/lib/hooks/use-user"
 
 interface ClasseOption {
@@ -213,7 +214,7 @@ export default function NouvelElevePage() {
           <div className="flex items-start gap-4">
             {ocrPreview ? (
               <div className="relative shrink-0">
-                <img src={ocrPreview} alt="Aperçu" className="h-32 w-32 rounded-lg border border-border object-cover" />
+                <Image src={ocrPreview} alt="Aperçu" width={128} height={128} className="rounded-lg border border-border object-cover" />
                 <button
                   type="button"
                   onClick={handleOcrRemove}

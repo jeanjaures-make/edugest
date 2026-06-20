@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
+import Image from "next/image"
 import { Building2, Users, School, TrendingUp } from "lucide-react"
 
 interface Stats {
@@ -84,7 +85,7 @@ export default function SuperadminDashboardPage() {
               <div key={school.id} className="flex items-center justify-between p-4 text-sm">
                 <div className="flex items-center gap-3">
                   {school.logo_url ? (
-                    <img src={school.logo_url} alt="" className="h-8 w-8 rounded object-contain border border-white/10" />
+                    <Image src={school.logo_url} alt="" width={32} height={32} className="rounded object-contain border border-white/10" />
                   ) : (
                     <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600/20 text-red-400">
                       <Building2 className="h-4 w-4" />

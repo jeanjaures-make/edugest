@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Loader2, Upload, X } from "lucide-react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import Image from "next/image"
 import { useUser } from "@/lib/hooks/use-user"
 
 export default function EcolePage() {
@@ -151,7 +152,7 @@ export default function EcolePage() {
           <div className="flex items-center gap-6 mb-6">
             {(logoPreview || logoUrl) ? (
               <div className="relative h-20 w-20 shrink-0">
-                <img src={logoPreview || logoUrl} alt="Logo" className="h-full w-full rounded-xl object-contain border border-border" />
+                <Image src={logoPreview || logoUrl} alt="" fill sizes="80px" className="rounded-xl object-contain border border-border" />
                 <button type="button" onClick={handleLogoRemove} className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600">
                   <X className="h-3 w-3" />
                 </button>

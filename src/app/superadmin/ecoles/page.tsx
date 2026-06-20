@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
+import Image from "next/image"
 import { Search, Mail, Phone, MapPin, Users, School, Globe } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
@@ -76,7 +77,7 @@ export default function SuperadminEcolesPage() {
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 {school.logo_url ? (
-                  <img src={school.logo_url} alt="" className="h-10 w-10 rounded-lg object-contain border border-white/10" />
+                  <Image src={school.logo_url} alt="" width={40} height={40} className="rounded-lg object-contain border border-white/10" />
                 ) : (
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-600/20 text-red-400">
                     <School className="h-5 w-5" />

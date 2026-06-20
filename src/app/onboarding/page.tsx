@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion, AnimatePresence } from "framer-motion"
+import Image from "next/image"
 import { Building2, User, CheckCircle, ArrowLeft, ArrowRight, Mail, Lock, Phone, MapPin, Eye, EyeOff, Upload, X } from "lucide-react"
 
 type Step = "ecole" | "admin" | "confirmation"
@@ -252,10 +253,12 @@ export default function OnboardingPage() {
                       <div className="flex items-center gap-4">
                         {logoPreview ? (
                           <div className="relative h-20 w-20 rounded-lg border border-border overflow-hidden shrink-0">
-                            <img
+                            <Image
                               src={logoPreview}
                               alt="Aperçu logo"
-                              className="h-full w-full object-contain"
+                              fill
+                              sizes="80px"
+                              className="object-contain"
                             />
                             <button
                               type="button"
@@ -570,12 +573,14 @@ export default function OnboardingPage() {
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", stiffness: 200, delay: 0.4 }}
-                      className="mx-auto mt-3 h-16 w-16 rounded-lg border border-border overflow-hidden"
+                      className="mx-auto mt-3 h-16 w-16 rounded-lg border border-border overflow-hidden relative"
                     >
-                      <img
+                      <Image
                         src={logoPreview}
-                        alt="Logo"
-                        className="h-full w-full object-contain"
+                        alt=""
+                        fill
+                        sizes="64px"
+                        className="object-contain"
                       />
                     </motion.div>
                   )}
