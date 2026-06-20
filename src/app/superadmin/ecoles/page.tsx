@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Search, Mail, Phone, MapPin, Users, School } from "lucide-react"
+import { Search, Mail, Phone, MapPin, Users, School, Globe } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 interface EcoleWithStats {
@@ -11,6 +11,8 @@ interface EcoleWithStats {
   adresse: string
   telephone: string
   email: string
+  site_web: string
+  logo_url: string
   code_etablissement: string
   created_at: string
   eleves_count: number
@@ -73,9 +75,13 @@ export default function SuperadminEcolesPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-600/20 text-red-400">
-                  <School className="h-5 w-5" />
-                </div>
+                {school.logo_url ? (
+                  <img src={school.logo_url} alt="" className="h-10 w-10 rounded-lg object-contain border border-white/10" />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-600/20 text-red-400">
+                    <School className="h-5 w-5" />
+                  </div>
+                )}
                 <div>
                   <h3 className="font-semibold">{school.nom}</h3>
                   <p className="text-xs text-gray-500">Code: {school.code_etablissement}</p>
@@ -89,9 +95,10 @@ export default function SuperadminEcolesPage() {
             </div>
 
             <div className="space-y-1.5 text-xs text-gray-400">
-              {school.email && <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {school.email}</p>}
-              {school.telephone && <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {school.telephone}</p>}
-              {school.adresse && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {school.adresse}</p>}
+              {school.email && <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 shrink-0" /> {school.email}</p>}
+              {school.telephone && <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 shrink-0" /> {school.telephone}</p>}
+              {school.adresse && <p className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 shrink-0" /> {school.adresse}</p>}
+              {school.site_web && <p className="flex items-center gap-2"><Globe className="h-3.5 w-3.5 shrink-0" /> {school.site_web}</p>}
             </div>
 
             <div className="text-xs text-gray-500">

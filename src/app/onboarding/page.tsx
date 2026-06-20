@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Logo } from "@/components/shared/logo"
@@ -18,7 +18,6 @@ export default function OnboardingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>("ecole")
   const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -29,6 +28,8 @@ export default function OnboardingPage() {
     adresse: "",
     telephone: "",
     email: "",
+    site_web: "",
+    code_etablissement: "",
     logo_url: "",
   })
 
@@ -39,6 +40,14 @@ export default function OnboardingPage() {
     telephone: "",
     password: "",
   })
+  const [countdown, setCountdown] = useState(5)
+
+  useEffect(() => {
+    if (step !== "confirmation") return
+    if (countdown <= 0) { router.push("/connexion"); return }
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [step, countdown, router])
 
   function updateSchool(field: string, value: string) {
     setSchool((prev) => ({ ...prev, [field]: value }))
@@ -75,26 +84,13 @@ export default function OnboardingPage() {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  async function uploadLogo(): Promise<string | null> {
-    if (!logoFile) return null
-    setUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append("file", logoFile)
-      const res = await fetch("/api/upload-logo", { method: "POST", body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Échec de l'upload")
-      updateSchool("logo_url", data.url)
-      if (logoPreview) URL.revokeObjectURL(logoPreview)
-      setLogoPreview(null)
-      setLogoFile(null)
-      return data.url
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Échec de l'upload")
-      return null
-    } finally {
-      setUploading(false)
-    }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const passwordErrors: string[] = []
+  if (admin.password.length > 0) {
+    if (admin.password.length < 6) passwordErrors.push("Minimum 6 caractères")
+    if (!/[A-Z]/.test(admin.password)) passwordErrors.push("1 majuscule")
+    if (!/[0-9]/.test(admin.password)) passwordErrors.push("1 chiffre")
   }
 
   function isSchoolValid() {
@@ -105,8 +101,10 @@ export default function OnboardingPage() {
     return (
       admin.nom.trim().length >= 2 &&
       admin.prenom.trim().length >= 2 &&
-      admin.email.includes("@") &&
-      admin.password.length >= 6
+      emailRegex.test(admin.email) &&
+      admin.password.length >= 6 &&
+      /[A-Z]/.test(admin.password) &&
+      /[0-9]/.test(admin.password)
     )
   }
 
@@ -115,16 +113,33 @@ export default function OnboardingPage() {
     setError("")
 
     try {
+      const fd = new FormData()
+      fd.append("school_nom", school.nom)
+      fd.append("school_adresse", school.adresse)
+      fd.append("school_telephone", school.telephone)
+      fd.append("school_email", school.email)
+      fd.append("school_site_web", school.site_web)
+      fd.append("school_code_etablissement", school.code_etablissement)
+      fd.append("admin_nom", admin.nom)
+      fd.append("admin_prenom", admin.prenom)
+      fd.append("admin_email", admin.email)
+      fd.append("admin_telephone", admin.telephone)
+      fd.append("admin_password", admin.password)
+      if (logoFile) fd.append("logo", logoFile)
+
       const res = await fetch("/api/auth/onboard", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ school, admin }),
+        body: fd,
       })
 
       const data = await res.json()
 
       if (!res.ok) {
         throw new Error(data.message || "Une erreur est survenue")
+      }
+
+      if (data.ecole?.logo_url) {
+        updateSchool("logo_url", data.ecole.logo_url)
       }
 
       setStep("confirmation")
@@ -225,18 +240,15 @@ export default function OnboardingPage() {
                 </CardHeader>
                 <CardContent>
                   <form
-                    onSubmit={async (e) => {
+                    onSubmit={(e) => {
                       e.preventDefault()
-                      if (logoFile) {
-                        const url = await uploadLogo()
-                        if (!url) return
-                      }
+                      setError("")
                       setStep("admin")
                     }}
                     className="space-y-4"
                   >
                     <div className="space-y-2">
-                      <Label>Logo de l'établissement</Label>
+                      <Label>Logo de l&apos;établissement</Label>
                       <div className="flex items-center gap-4">
                         {logoPreview ? (
                           <div className="relative h-20 w-20 rounded-lg border border-border overflow-hidden shrink-0">
@@ -278,7 +290,7 @@ export default function OnboardingPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="school-nom">Nom de l'établissement *</Label>
+                      <Label htmlFor="school-nom">Nom de l&apos;établissement *</Label>
                       <div className="relative">
                         <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
@@ -293,7 +305,7 @@ export default function OnboardingPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="school-email">Email de l'établissement</Label>
+                      <Label htmlFor="school-email">Email de l&apos;établissement</Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
@@ -336,6 +348,27 @@ export default function OnboardingPage() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="school-code">Code établissement</Label>
+                        <Input
+                          id="school-code"
+                          placeholder="Ex: GSA-2026"
+                          value={school.code_etablissement}
+                          onChange={(e) => updateSchool("code_etablissement", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="school-site">Site web</Label>
+                        <Input
+                          id="school-site"
+                          placeholder="https://ecole.ci"
+                          value={school.site_web}
+                          onChange={(e) => updateSchool("site_web", e.target.value)}
+                        />
+                      </div>
+                    </div>
+
                     {error && (
                       <motion.div
                         initial={{ opacity: 0, y: -8 }}
@@ -346,14 +379,9 @@ export default function OnboardingPage() {
                       </motion.div>
                     )}
 
-                    <Button
-                      type="submit"
-                      className="w-full h-11"
-                      disabled={!isSchoolValid() || uploading}
-                      loading={uploading}
-                    >
-                      {uploading ? "Upload..." : "Suivant"}
-                      {!uploading && <ArrowRight className="h-4 w-4" />}
+                    <Button type="submit" className="w-full h-11" disabled={!isSchoolValid()}>
+                      Suivant
+                      <ArrowRight className="h-4 w-4" />
                     </Button>
 
                     <p className="text-center text-sm text-muted-foreground">
@@ -455,7 +483,7 @@ export default function OnboardingPage() {
                         <Input
                           id="admin-password"
                           type={showPassword ? "text" : "password"}
-                          placeholder="Minimum 6 caractères"
+                          placeholder="Minimum 6 caractères, 1 majuscule, 1 chiffre"
                           value={admin.password}
                           onChange={(e) => updateAdmin("password", e.target.value)}
                           className="pl-9 pr-9"
@@ -470,6 +498,16 @@ export default function OnboardingPage() {
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
+                      {passwordErrors.length > 0 && (
+                        <div className="space-y-1">
+                          {passwordErrors.map((err) => (
+                            <p key={err} className="text-xs text-red-500 flex items-center gap-1">
+                              <span className="h-1 w-1 rounded-full bg-red-500" />
+                              {err}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {error && (
@@ -527,7 +565,7 @@ export default function OnboardingPage() {
                   <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                     École créée avec succès !
                   </CardTitle>
-                  {school.logo_url && (
+                  {logoPreview && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -535,7 +573,7 @@ export default function OnboardingPage() {
                       className="mx-auto mt-3 h-16 w-16 rounded-lg border border-border overflow-hidden"
                     >
                       <img
-                        src={school.logo_url}
+                        src={logoPreview}
                         alt="Logo"
                         className="h-full w-full object-contain"
                       />
@@ -558,7 +596,7 @@ export default function OnboardingPage() {
                     className="w-full h-11"
                     onClick={() => router.push("/connexion")}
                   >
-                    Aller à la connexion
+                    Aller à la connexion{countdown > 0 ? ` (${countdown}s)` : ""}
                   </Button>
                 </CardContent>
               </motion.div>

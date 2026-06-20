@@ -2,7 +2,7 @@
 
 import {
   LayoutDashboard, Users, UserPlus, BookOpen, ClipboardList,
-  DollarSign, CreditCard, CalendarCheck, Clock, UtensilsCrossed,
+  Coins, CreditCard, CalendarCheck, Clock, UtensilsCrossed,
   Bus, Library, MessageSquare, Calendar, FileText, Settings,
   type LucideIcon,
 } from "lucide-react"
@@ -22,7 +22,7 @@ export const navLinks: NavLink[] = [
   { label: "Personnel", href: "/personnel", icon: Users, roles: ["directeur"] },
   { label: "Notes", href: "/notes", icon: BookOpen, roles: ["directeur", "enseignant"] },
   { label: "Bulletins", href: "/bulletins", icon: ClipboardList, roles: ["directeur", "enseignant", "parent", "eleve"] },
-  { label: "Frais scolaires", href: "/frais", icon: DollarSign, roles: ["directeur", "comptable"] },
+  { label: "Frais scolaires", href: "/frais", icon: Coins, roles: ["directeur", "comptable"] },
   { label: "Paiements", href: "/paiements", icon: CreditCard, roles: ["directeur", "comptable", "parent"] },
   { label: "Présences", href: "/presences", icon: CalendarCheck, roles: ["directeur", "enseignant", "parent"] },
   { label: "Emploi du temps", href: "/emploi-du-temps", icon: Clock, roles: ["directeur", "enseignant", "eleve"] },

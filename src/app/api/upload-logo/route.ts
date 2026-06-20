@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 export async function POST(request: Request) {
   const formData = await request.formData()
   const file = formData.get("file") as File
+  const schoolId = formData.get("school_id") as string | null
 
   if (!file) {
     return NextResponse.json({ error: "Fichier requis" }, { status: 400 })
@@ -31,12 +32,15 @@ export async function POST(request: Request) {
   }
 
   const ext = file.name.split(".").pop()
-  const fileName = `temp/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const fileName = schoolId
+    ? `${schoolId}/logo.${ext}`
+    : `temp/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+
   const buffer = Buffer.from(await file.arrayBuffer())
 
   const { error: uploadError } = await svc.storage.from(bucketName).upload(fileName, buffer, {
     contentType: file.type,
-    upsert: false,
+    upsert: !!schoolId,
   })
 
   if (uploadError) {

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  Users, UserPlus, DollarSign, GraduationCap,
+  Users, UserPlus, Coins, GraduationCap,
   AlertTriangle, TrendingUp, Calendar, Activity,
 } from "lucide-react"
 import { motion } from "framer-motion"
@@ -22,7 +22,7 @@ import { fr } from "date-fns/locale"
 
 const activityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   "Nouvelle inscription": UserPlus,
-  "Paiement reçu": DollarSign,
+  "Paiement reçu": Coins,
   "Bulletin généré": GraduationCap,
   "Absence signalée": AlertTriangle,
   "Réunion programmée": Calendar,
@@ -68,8 +68,8 @@ export default function DashboardPage() {
       ] = await Promise.all([
         supabase.from("eleves").select("*", { count: "exact", head: true }).eq("ecole_id", ecoleId).eq("statut", "actif"),
         supabase.from("inscriptions").select("*, eleve:eleves!inner(ecole_id)").eq("eleve.ecole_id", ecoleId),
-        supabase.from("presences").select("statut").eq("classe_id", ecoleId),
-        supabase.from("echeanciers").select("montant_restant").eq("...classe_id", ecoleId),
+        supabase.from("presences").select("statut, eleve!inner(ecole_id)").eq("eleve.ecole_id", ecoleId),
+        supabase.from("echeanciers").select("montant_restant, classe:classes!inner(ecole_id)").eq("classe.ecole_id", ecoleId),
         supabase.from("inscriptions").select("created_at, eleve:eleves!inner(ecole_id)").eq("eleve.ecole_id", ecoleId).gte("created_at", new Date(new Date().getFullYear(), 8, 1).toISOString()),
         supabase.from("paiements").select("montant, methode, created_at, eleve:eleves!inner(nom, prenom, ecole_id)").eq("eleve.ecole_id", ecoleId).order("created_at", { ascending: false }).limit(10),
         supabase.from("inscriptions").select("created_at, eleve:eleves!inner(nom, prenom, ecole_id), classe:classes!inner(libelle)").eq("eleve.ecole_id", ecoleId).order("created_at", { ascending: false }).limit(5),
@@ -204,7 +204,7 @@ export default function DashboardPage() {
               <StatCard label="Taux de présence" value={`${tauxPresence}%`} icon={GraduationCap} gradient="orange" delay={0.2} />
             </motion.div>
             <motion.div variants={statCardItem} custom={3}>
-              <StatCard label="Impayés" value={formatMontant(totalImpayes)} icon={DollarSign} gradient="purple" delay={0.3} />
+              <StatCard label="Impayés" value={formatMontant(totalImpayes)} icon={Coins} gradient="purple" delay={0.3} />
             </motion.div>
           </motion.div>
         )}

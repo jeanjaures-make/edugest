@@ -37,7 +37,7 @@ export async function GET() {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const { data: ecoles, error } = await svc.from("ecoles").select("*").order("created_at", { ascending: false })
+  const { data: ecoles, error } = await svc.from("ecoles").select("id, nom, adresse, telephone, email, site_web, logo_url, code_etablissement, created_at").order("created_at", { ascending: false })
 
   if (error) {
     return NextResponse.json({ error: "Erreur lors de la récupération des écoles" }, { status: 500 })

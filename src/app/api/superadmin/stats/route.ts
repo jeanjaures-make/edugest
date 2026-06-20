@@ -48,7 +48,7 @@ export async function GET() {
     svc.from("eleves").select("*", { count: "exact", head: true }),
     svc.from("personnel").select("*", { count: "exact", head: true }).eq("type", "enseignant"),
     svc.from("profils").select("*", { count: "exact", head: true }),
-    svc.from("ecoles").select("id, nom, email, telephone, created_at").order("created_at", { ascending: false }).limit(5),
+    svc.from("ecoles").select("id, nom, email, telephone, site_web, logo_url, code_etablissement, created_at").order("created_at", { ascending: false }).limit(5),
   ])
 
   return NextResponse.json({

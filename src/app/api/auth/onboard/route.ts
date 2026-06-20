@@ -2,8 +2,26 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const { school, admin } = body
+  const formData = await request.formData()
+
+  const school = {
+    nom: formData.get("school_nom") as string,
+    adresse: (formData.get("school_adresse") as string) || "",
+    telephone: (formData.get("school_telephone") as string) || "",
+    email: (formData.get("school_email") as string) || "",
+    site_web: (formData.get("school_site_web") as string) || "",
+    code_etablissement: (formData.get("school_code_etablissement") as string) || "",
+  }
+
+  const admin = {
+    nom: formData.get("admin_nom") as string,
+    prenom: formData.get("admin_prenom") as string,
+    email: formData.get("admin_email") as string,
+    telephone: (formData.get("admin_telephone") as string) || "",
+    password: formData.get("admin_password") as string,
+  }
+
+  const logoFile = formData.get("logo") as File | null
 
   const svc = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,10 +33,10 @@ export async function POST(request: Request) {
     .from("ecoles")
     .insert({
       nom: school.nom,
-      adresse: school.adresse || "",
-      telephone: school.telephone || "",
-      email: school.email || "",
-      logo_url: school.logo_url || null,
+      adresse: school.adresse,
+      telephone: school.telephone,
+      email: school.email,
+      site_web: school.site_web,
       code_etablissement: school.code_etablissement || `ETAB-${Date.now().toString().slice(-6)}`,
     })
     .select()
@@ -29,6 +47,46 @@ export async function POST(request: Request) {
       { error: "SCHOOL_FAILED", message: "Erreur lors de la création de l'établissement" },
       { status: 400 }
     )
+  }
+
+  let logoUrl: string | null = null
+  if (logoFile && logoFile.size > 0) {
+    const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
+    if (!allowed.includes(logoFile.type)) {
+      await svc.from("ecoles").delete().eq("id", ecole.id)
+      return NextResponse.json(
+        { error: "LOGO_FORMAT", message: "Format non supporté (PNG, JPG, WEBP, SVG)" },
+        { status: 400 }
+      )
+    }
+    if (logoFile.size > 2 * 1024 * 1024) {
+      await svc.from("ecoles").delete().eq("id", ecole.id)
+      return NextResponse.json(
+        { error: "LOGO_SIZE", message: "Fichier trop volumineux (max 2 Mo)" },
+        { status: 400 }
+      )
+    }
+
+    const bucketName = "logos"
+    const { data: buckets } = await svc.storage.listBuckets()
+    if (!buckets?.find((b) => b.name === bucketName)) {
+      await svc.storage.createBucket(bucketName, { public: true, fileSizeLimit: 2097152 })
+    }
+
+    const ext = logoFile.name.split(".").pop()
+    const fileName = `${ecole.id}/logo.${ext}`
+    const buffer = Buffer.from(await logoFile.arrayBuffer())
+
+    const { error: uploadError } = await svc.storage.from(bucketName).upload(fileName, buffer, {
+      contentType: logoFile.type,
+      upsert: true,
+    })
+
+    if (!uploadError) {
+      const { data: urlData } = svc.storage.from(bucketName).getPublicUrl(fileName)
+      logoUrl = urlData.publicUrl
+      await svc.from("ecoles").update({ logo_url: logoUrl }).eq("id", ecole.id)
+    }
   }
 
   const { data: authUser, error: authError } = await svc.auth.admin.createUser({
@@ -75,9 +133,45 @@ export async function POST(request: Request) {
     active: true,
   })
 
+  const niveauxParDefaut = [
+    { libelle: "CP", code: "CP", ordre: 1 },
+    { libelle: "CE1", code: "CE1", ordre: 2 },
+    { libelle: "CE2", code: "CE2", ordre: 3 },
+    { libelle: "CM1", code: "CM1", ordre: 4 },
+    { libelle: "CM2", code: "CM2", ordre: 5 },
+    { libelle: "6ème", code: "6E", ordre: 6 },
+    { libelle: "5ème", code: "5E", ordre: 7 },
+    { libelle: "4ème", code: "4E", ordre: 8 },
+    { libelle: "3ème", code: "3E", ordre: 9 },
+    { libelle: "2nde", code: "2ND", ordre: 10 },
+    { libelle: "1ère", code: "1E", ordre: 11 },
+    { libelle: "Tle", code: "TLE", ordre: 12 },
+  ]
+  await svc.from("niveaux").insert(
+    niveauxParDefaut.map((n) => ({ ...n, ecole_id: ecole.id }))
+  )
+
+  const matieresParDefaut = [
+    { libelle: "Mathématiques", code: "MATH", coefficient: 5 },
+    { libelle: "Français", code: "FR", coefficient: 5 },
+    { libelle: "Anglais", code: "ANG", coefficient: 3 },
+    { libelle: "Histoire-Géographie", code: "HG", coefficient: 3 },
+    { libelle: "Sciences de la Vie et de la Terre", code: "SVT", coefficient: 3 },
+    { libelle: "Physique-Chimie", code: "PC", coefficient: 3 },
+    { libelle: "Philosophie", code: "PHILO", coefficient: 3 },
+    { libelle: "Éducation Physique et Sportive", code: "EPS", coefficient: 2 },
+    { libelle: "Arts Plastiques", code: "AP", coefficient: 1 },
+    { libelle: "Musique", code: "MUS", coefficient: 1 },
+    { libelle: "Éducation Civique et Morale", code: "ECM", coefficient: 2 },
+    { libelle: "TIC", code: "TIC", coefficient: 2 },
+  ]
+  await svc.from("matieres").insert(
+    matieresParDefaut.map((m) => ({ ...m, ecole_id: ecole.id }))
+  )
+
   return NextResponse.json({
     success: true,
-    ecole: { id: ecole.id, nom: ecole.nom },
+    ecole: { id: ecole.id, nom: ecole.nom, logo_url: logoUrl },
     email: admin.email,
   })
 }

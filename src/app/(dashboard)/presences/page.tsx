@@ -107,7 +107,7 @@ export default function PresencesPage() {
         .select("eleve_id, statut, motif")
         .eq("date", selectedDate)
         .in("eleve_id", elevesData.map((e) => e.id))
-        .eq("...classe_id", selectedClasse)
+        .eq("classe_id", selectedClasse)
 
       const existingMap = new Map(((existing || []) as unknown as { eleve_id: string; statut: string; motif: string | null }[]).map((e) => [e.eleve_id, e]))
       setEleves(elevesData.map((e) => ({
@@ -145,7 +145,7 @@ export default function PresencesPage() {
       .from("presences")
       .select("eleve_id, id")
       .eq("date", selectedDate)
-      .eq("...classe_id", selectedClasse)
+      .eq("classe_id", selectedClasse)
 
     const existingIds = new Set(((existing || []) as unknown as { eleve_id: string; id: string }[]).map((e) => e.eleve_id))
     const existingRecordIds = new Map(((existing || []) as unknown as { eleve_id: string; id: string }[]).map((e) => [e.eleve_id, e.id]))
