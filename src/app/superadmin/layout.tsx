@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useEffectEvent } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 import { GraduationCap, LayoutDashboard, Building2, LogOut, Menu, X } from "lucide-react"
@@ -14,6 +13,11 @@ const superadminLinks = [
   { label: "Tableau de bord", href: "/superadmin/dashboard", icon: LayoutDashboard },
   { label: "Écoles", href: "/superadmin/ecoles", icon: Building2 },
 ]
+
+async function getSupabase() {
+  const { supabase } = await import("@/lib/supabase")
+  return supabase
+}
 
 export default function SuperadminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -26,6 +30,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   useEffect(() => { onPathnameChange() }, [pathname])
 
   const checkAuth = useCallback(async () => {
+    const supabase = await getSupabase()
     const { data: { user: authUser }, error } = await supabase.auth.getUser()
     if (error || !authUser) { router.push("/connexion"); return }
 
@@ -48,6 +53,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   useEffect(() => { onCheckAuth() }, [])
 
   async function handleSignOut() {
+    const supabase = await getSupabase()
     await supabase.auth.signOut()
     router.push("/connexion")
   }
