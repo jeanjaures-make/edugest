@@ -229,7 +229,7 @@ function NouvelleInscriptionDialog({ onCreated, ecoleId }: { onCreated: () => vo
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!classe_id) return
+    if (!classe_id || !ecoleId) return
     setSaving(true)
 
     let finalEleveId = eleve_id

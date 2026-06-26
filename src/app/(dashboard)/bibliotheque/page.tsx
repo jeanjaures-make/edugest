@@ -306,7 +306,7 @@ function NouveauPretDialog({ onCreated, ecoleId }: { onCreated: () => void; ecol
     })
     if (!error) {
       await supabase.from("bibliotheque_ouvrages").update({
-        disponibles: ouvrages.find((o) => o.id === ouvrage_id)!.disponibles - 1,
+        disponibles: (ouvrages.find((o) => o.id === ouvrage_id)?.disponibles ?? 0) - 1,
       }).eq("id", ouvrage_id)
     }
     setSaving(false)
