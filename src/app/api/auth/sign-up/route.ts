@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
-import { cookies } from "next/headers"
 import { checkRateLimit } from "@/lib/rate-limiter"
 import { headers } from "next/headers"
 
@@ -15,22 +13,6 @@ export async function POST(request: Request) {
       { status: 429, headers: { "Retry-After": String(retryAfter) } }
     )
   }
-
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
 
   const body = await request.json()
   const { email, password, parent, enfant, school_id } = body
@@ -49,16 +31,6 @@ export async function POST(request: Request) {
     )
   }
 
-  const { data, error } = await supabase.auth.signUp({ email, password })
-
-  if (error || !data.user) {
-    const message =
-      error?.code === "email_already_exists"
-        ? "Cet email est déjà utilisé"
-        : "Échec de l'inscription"
-    return NextResponse.json({ error: "SIGNUP_FAILED", message }, { status: 400 })
-  }
-
   const svc = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -72,17 +44,30 @@ export async function POST(request: Request) {
     .single()
 
   if (ecoleError || !ecole) {
-    await svc.auth.admin.deleteUser(data.user.id)
     return NextResponse.json(
       { error: "ECOLE_INVALIDE", message: "Établissement introuvable" },
       { status: 400 }
     )
   }
 
+  const { data: authUser, error: authError } = await svc.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  })
+
+  if (authError || !authUser.user) {
+    const message =
+      authError?.message?.includes("already")
+        ? "Cet email est déjà utilisé"
+        : "Échec de l'inscription"
+    return NextResponse.json({ error: "SIGNUP_FAILED", message }, { status: 400 })
+  }
+
   const { data: profil, error: profilError } = await svc
     .from("profils")
     .insert({
-      user_id: data.user.id,
+      user_id: authUser.user.id,
       ecole_id: ecole.id,
       nom: parent?.nom || "",
       prenom: parent?.prenom || "",
@@ -93,7 +78,7 @@ export async function POST(request: Request) {
     .single()
 
   if (profilError) {
-    await svc.auth.admin.deleteUser(data.user.id)
+    await svc.auth.admin.deleteUser(authUser.user.id)
     return NextResponse.json(
       { error: "PROFIL_FAILED", message: "Erreur lors de la création du profil" },
       { status: 400 }
@@ -123,5 +108,5 @@ export async function POST(request: Request) {
     if (!eleveError) eleve = newEleve
   }
 
-  return NextResponse.json({ user: data.user, profil, eleve })
+  return NextResponse.json({ user: authUser.user, profil, eleve })
 }
