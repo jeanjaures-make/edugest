@@ -56,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   async function handleSignOut() {
     await supabase.auth.signOut()
-    router.push("/connexion")
+    router.push("/")
     router.refresh()
   }
 

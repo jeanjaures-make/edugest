@@ -55,7 +55,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   async function handleSignOut() {
     const supabase = await getSupabase()
     await supabase.auth.signOut()
-    router.push("/connexion")
+    router.push("/")
   }
 
   if (loading) {
