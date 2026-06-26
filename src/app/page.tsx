@@ -139,7 +139,7 @@ function Hero() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-1.5 text-sm font-medium text-orange-700 mb-6">
               <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-              Le premier logiciel de gestion scolaire 100% ivoirien
+              Le logiciel de gestion scolaire 100% en ligne
             </span>
           </motion.div>
 
