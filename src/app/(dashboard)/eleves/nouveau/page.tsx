@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Save, Upload, Scan, X } from "lucide-react"
+import { ArrowLeft, Save, Upload, Scan, X, FileText, ExternalLink } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
 import Image from "next/image"
 import { useUser } from "@/lib/hooks/use-user"
@@ -15,48 +16,146 @@ import { useUser } from "@/lib/hooks/use-user"
 interface ClasseOption {
   id: string
   libelle: string
+  frais_inscription: number
+}
+
+const FIELD_LABELS: [string, string[]][] = [
+  ["nom", ["NOM", "NOM DE FAMILLE"]],
+  ["prenom", ["PRENOM", "PRENOMS", "PRÉNOM", "PRÉNOMS"]],
+  ["date_naissance", ["DATE DE NAISSANCE", "DATE NAISSANCE", "NÉ LE", "NEE LE", "NÉE LE", "DATE NAISS"]],
+  ["lieu_naissance", ["LIEU DE NAISSANCE", "LIEU NAISSANCE", "NÉ A", "NEE A", "NÉE A"]],
+  ["sexe", ["SEXE"]],
+  ["nationalite", ["NATIONALITE", "NATIONALITÉ"]],
+  ["adresse", ["ADRESSE", "DOMICILE"]],
+  ["telephone", ["TELEPHONE", "TÉLÉPHONE", "TEL", "TÉL", "CONTACT"]],
+  ["email", ["EMAIL", "E-MAIL", "MAIL", "COURRIEL"]],
+]
+
+function isValidValue(v: string): boolean {
+  const s = v.trim()
+  if (!s || s === "-" || s === "--" || s === "—") return false
+  if (s.length > 150) return false
+  return true
+}
+
+function matchLabel(line: string, labels: string[]): string | null {
+  const upper = line.toUpperCase().trim()
+  for (const label of labels) {
+    const idx = upper.indexOf(label.toUpperCase())
+    if (idx === 0 || (idx > 0 && /[\s:]/.test(upper[idx - 1]))) {
+      return label
+    }
+  }
+  return null
+}
+
+function extractValueFromLine(line: string, matchedLabel: string): string {
+  const upper = line.toUpperCase().trim()
+  const idx = upper.indexOf(matchedLabel.toUpperCase())
+  if (idx === -1) return ""
+  const after = line.slice(idx + matchedLabel.length).trim()
+  return after.replace(/^[:;]\s*/, "").trim()
 }
 
 function extractFields(text: string): Record<string, string> {
   const fields: Record<string, string> = {}
+  const lines = text.split("\n").map((l) => l.trim()).filter((l) => l)
 
-  const patterns: [string, RegExp][] = [
-    ["nom", /(?:\bNOM\b|\bNom\b|\bNOM\s*:\s*)([A-Za-zÀ-ÿ\s\-]+?)(?:\n|,\s*\n|\s{2,}|$)/],
-    ["prenom", /(?:\bPRENOMS?\b|\bPrénoms?\b|\bPrenoms?\b|\bPRENOM\b|\bPrénom\b|\bPrenom\b)\s*:?\s*([A-Za-zÀ-ÿ\s\-]+?)(?:\n|,\s*\n|\s{2,}|$)/],
-    ["date_naissance", /(?:\bDATE\s*DE\s*NAISSANCE\b|\bDate\s*de\s*naissance\b|\bNÉE?\s*LE\b|\bNee?\s*le\b)\s*:?\s*(\d{1,2}[/\s-]\d{1,2}[/\s-]\d{2,4})/],
-    ["lieu_naissance", /(?:\bLIEU\s*DE\s*NAISSANCE\b|\bLieu\s*de\s*naissance\b|\bNÉE?\s*A\b|\bNee?\s*a\b)\s*:?\s*([A-Za-zÀ-ÿ\s\-]+?)(?:\n|$)/],
-    ["sexe", /(?:\bSEXE\b|\bSexe\b)\s*:?\s*([MF])/],
-    ["nationalite", /(?:\bNATIONALITE?\b|\bNationalité\b|\bNationalite\b)\s*:?\s*([A-Za-zÀ-ÿ\s\-]+?)(?:\n|$)/],
-    ["adresse", /(?:\bADRESSE\b|\bAdresse\b|\bDOMICILE\b|\bDomicile\b)\s*:?\s*([A-Za-zÀ-ÿ0-9\s\-,.]+?)(?:\n{2,}|$)/],
-    ["telephone", /(?:\bTELEPHONE\b|\bTéléphone\b|\bTelephone\b|\bTEL\b|\bTel\b)\s*:?\s*([+\d\s\-]{8,})/],
-    ["email", /(?:\bEMAIL\b|\bEmail\b|\bE-MAIL\b|\bCourriel\b|\bMAIL\b)\s*:?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/],
-  ]
+  for (const [key, labels] of FIELD_LABELS) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const matchedLabel = matchLabel(line, labels)
+      if (!matchedLabel) continue
 
-  for (const [key, regex] of patterns) {
-    const match = text.match(regex)
-    if (match && match[1]) {
-      fields[key] = match[1].trim()
-    }
-  }
+      const val = extractValueFromLine(line, matchedLabel)
 
-  if (fields["date_naissance"]) {
-    const d = fields["date_naissance"].replace(/\s+/g, "/")
-    const parts = d.split("/")
-    if (parts.length === 3) {
-      const [d1, d2] = parts
-      let d3 = parts[2]
-      if (d3.length === 2) d3 = "20" + d3
-      if (d1.length === 4) {
-        fields["date_naissance"] = `${d1}-${d2.padStart(2, "0")}-${d3.padStart(2, "0")}`
-      } else {
-        fields["date_naissance"] = `${d3}-${d2.padStart(2, "0")}-${d1.padStart(2, "0")}`
+      if (val && isValidValue(val)) {
+        fields[key] = val
+        break
+      }
+
+      if (i + 1 < lines.length) {
+        const nextVal = lines[i + 1].trim()
+
+        if (isValidValue(nextVal)) {
+          const short = nextVal.length < 60
+          const noSpace = !nextVal.includes(" ")
+          if (short || noSpace) {
+            fields[key] = nextVal
+            break
+          }
+        }
+
+        if (i + 2 < lines.length && isValidValue(nextVal) && nextVal.length < 60) {
+          const nextNext = lines[i + 2].trim()
+          if (!matchLabel(nextNext, labels)) {
+            fields[key] = nextVal + " " + nextNext
+            break
+          }
+        }
       }
     }
   }
 
+  if (!fields["nom"] && fields["prenom"]) {
+    const fallback = text.match(/(?:NOM|PRENOM)[:\s]*([A-Za-zÀ-ÿ\s\-]+)/i)
+    if (fallback) {
+      const parts = fallback[1].trim().split(/\s+/)
+      if (parts.length >= 2) {
+        fields["nom"] = parts[0]
+        fields["prenom"] = parts.slice(1).join(" ")
+      }
+    }
+  }
+
+  if (!fields["date_naissance"]) {
+    const dateMatch = text.match(/(\d{1,2})[\s\/\-]+(\d{1,2})[\s\/\-]+(\d{2,4})/)
+    if (dateMatch) {
+      const d1 = dateMatch[1], d2 = dateMatch[2], d3 = dateMatch[3]
+      const year = d3.length === 2 ? "20" + d3 : d3
+      if (d1.length === 4) {
+        fields["date_naissance"] = `${d1}-${d2.padStart(2, "0")}-${d3.padStart(2, "0")}`
+      } else {
+        fields["date_naissance"] = `${year}-${d2.padStart(2, "0")}-${d1.padStart(2, "0")}`
+      }
+    }
+  }
+
+  if (fields["date_naissance"]) {
+    const d = fields["date_naissance"].replace(/\s+/g, "/").replace(/[^0-9/]/g, "")
+    const parts = d.split("/").filter(Boolean)
+    if (parts.length >= 3) {
+      const [a, b] = parts
+      let c = parts[2]
+      if (c.length === 2) c = "20" + c
+      if (a.length === 4) {
+        fields["date_naissance"] = `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`
+      } else {
+        fields["date_naissance"] = `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`
+      }
+    }
+  }
+
+  if (!fields["sexe"]) {
+    const sexeMatch = text.match(/\b([MF])\b/i)
+    if (sexeMatch) {
+      const s = sexeMatch[1].toUpperCase()
+      if (s === "M" || s === "F") fields["sexe"] = s
+    }
+  }
+
   if (fields["sexe"]) {
-    const s = fields["sexe"].toUpperCase()
-    fields["sexe"] = s === "M" ? "M" : s === "F" ? "F" : ""
+    const s = fields["sexe"].replace(/[^MFmf]/g, "").toUpperCase()
+    fields["sexe"] = s === "M" ? "M" : s === "F" ? "F" : fields["sexe"].includes("Masculin") ? "M" : fields["sexe"].includes("Féminin") || fields["sexe"].includes("Feminin") ? "F" : ""
+  }
+
+  if (fields["telephone"]) {
+    fields["telephone"] = fields["telephone"].replace(/[^+\d\s]/g, "").trim()
+  }
+
+  if (fields["email"]) {
+    const emailMatch = fields["email"].match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+    if (emailMatch) fields["email"] = emailMatch[0]
   }
 
   return fields
@@ -74,6 +173,9 @@ export default function NouvelElevePage() {
   const [ocrPreview, setOcrPreview] = useState<string | null>(null)
   const [ocrText, setOcrText] = useState("")
   const [ocrFieldsFound, setOcrFieldsFound] = useState<string[]>([])
+  const [creerInscription, setCreerInscription] = useState(false)
+  const [fraisInscription, setFraisInscription] = useState(0)
+  const [successDialog, setSuccessDialog] = useState<{ eleveId: string; inscriptionId: string | null } | null>(null)
 
   const [form, setForm] = useState({
     nom: "",
@@ -90,9 +192,9 @@ export default function NouvelElevePage() {
 
   useEffect(() => {
     if (!profile?.ecole_id) return
-    supabase
+      supabase
       .from("classes")
-      .select("id, libelle")
+      .select("id, libelle, frais_inscription")
       .eq("ecole_id", profile.ecole_id)
       .order("libelle")
       .then(({ data }) => { if (data) setClasses(data) })
@@ -133,9 +235,14 @@ export default function NouvelElevePage() {
     setOcrLoading(true)
     setError("")
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 100_000)
+
       const fd = new FormData()
       fd.append("file", ocrFile)
-      const res = await fetch("/api/ocr", { method: "POST", body: fd })
+      const res = await fetch("/api/ocr", { method: "POST", body: fd, signal: controller.signal })
+      clearTimeout(timeoutId)
+
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Échec de l'OCR")
       setOcrText(data.text)
@@ -150,7 +257,11 @@ export default function NouvelElevePage() {
       }
       setOcrFieldsFound(found)
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur OCR")
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("L'analyse OCR a pris trop de temps. Réessayez avec une image plus légère.")
+      } else {
+        setError(err instanceof Error ? err.message : "Erreur OCR")
+      }
     } finally {
       setOcrLoading(false)
     }
@@ -174,7 +285,29 @@ export default function NouvelElevePage() {
         throw new Error(data.error || "Erreur lors de la création")
       }
 
-      router.push(`/eleves/${data.eleve.id}`)
+      let inscriptionId: string | null = null
+
+      if (creerInscription && form.classe_id && fraisInscription > 0) {
+        const insRes = await fetch("/api/inscriptions/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eleve_id: data.eleve.id,
+            classe_id: form.classe_id,
+            frais_inscription: fraisInscription,
+          }),
+        })
+        const insData = await insRes.json()
+        if (insRes.ok && insData.inscription) {
+          inscriptionId = insData.inscription.id
+        }
+      }
+
+      if (inscriptionId) {
+        setSuccessDialog({ eleveId: data.eleve.id, inscriptionId })
+      } else {
+        router.push(`/eleves/${data.eleve.id}`)
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue")
       setSaving(false)
@@ -269,10 +402,10 @@ export default function NouvelElevePage() {
               </div>
 
               {ocrText && (
-                <details className="text-xs text-gray-400">
-                  <summary className="cursor-pointer hover:text-gray-600">Texte brut OCR</summary>
-                  <pre className="mt-1 max-h-24 overflow-y-auto rounded bg-gray-50 p-2 whitespace-pre-wrap font-mono text-[10px] leading-tight">{ocrText}</pre>
-                </details>
+                <div className="text-xs">
+                  <p className="text-muted-foreground mb-1">Texte extrait par l&apos;OCR :</p>
+                  <pre className="max-h-32 overflow-y-auto rounded bg-gray-50 p-2.5 whitespace-pre-wrap font-mono text-[11px] leading-relaxed border border-border">{ocrText}</pre>
+                </div>
               )}
             </div>
           </div>
@@ -350,7 +483,11 @@ export default function NouvelElevePage() {
                 id="classe_id"
                 className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={form.classe_id}
-                onChange={(e) => update("classe_id", e.target.value)}
+                onChange={(e) => {
+                  update("classe_id", e.target.value)
+                  const c = classes.find((cl) => cl.id === e.target.value)
+                  if (c) setFraisInscription(c.frais_inscription)
+                }}
               >
                 <option value="">Non affecté</option>
                 {classes.map((c) => (
@@ -364,6 +501,38 @@ export default function NouvelElevePage() {
           </CardContent>
         </Card>
 
+        {form.classe_id && (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Inscription</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={creerInscription}
+                  onChange={(e) => setCreerInscription(e.target.checked)}
+                  className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm font-medium">Créer une inscription pour cet élève</span>
+              </label>
+              {creerInscription && (
+                <div className="space-y-2 pl-7">
+                  <Label htmlFor="frais_inscription">Frais d&apos;inscription (FCFA)</Label>
+                  <Input
+                    id="frais_inscription"
+                    type="number"
+                    min={0}
+                    value={fraisInscription}
+                    onChange={(e) => setFraisInscription(Number(e.target.value))}
+                  />
+                  <p className="text-xs text-gray-400">
+                    Le reçu d&apos;inscription sera disponible après validation.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex gap-3">
           <Button type="submit" disabled={saving}>
             <Save className="h-4 w-4 mr-2" />
@@ -374,6 +543,37 @@ export default function NouvelElevePage() {
           </Link>
         </div>
       </form>
+
+      <Dialog open={successDialog !== null} onOpenChange={(open) => { if (!open) { setSuccessDialog(null); if (successDialog) router.push(`/eleves/${successDialog.eleveId}`) } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <FileText className="h-5 w-5" />
+              Élève créé avec succès
+            </DialogTitle>
+            <DialogDescription>
+              {successDialog?.inscriptionId
+                ? "L'inscription a été créée. Vous pouvez imprimer le reçu."
+                : "L'élève a été enregistré."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pt-2">
+            {successDialog?.inscriptionId && (
+              <Button asChild>
+                <Link href={`/inscriptions/recu/${successDialog.inscriptionId}`}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Voir le reçu d&apos;inscription
+                </Link>
+              </Button>
+            )}
+            <Button asChild variant={successDialog?.inscriptionId ? "outline" : "default"}>
+              <Link href={`/eleves/${successDialog?.eleveId}`}>
+                Voir la fiche élève
+              </Link>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

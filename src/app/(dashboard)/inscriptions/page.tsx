@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState, useEffectEvent } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Check, X, Plus, Trash2, Loader2, Download, Search } from "lucide-react"
+import { Check, X, Plus, Trash2, Loader2, Download, Search, Printer } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/lib/hooks/use-user"
 import { format } from "date-fns"
@@ -168,6 +169,11 @@ export default function InscriptionsPage() {
                               </Button>
                             </>
                           )}
+                          <Link href={`/inscriptions/recu/${ins.id}`}>
+                            <Button variant="ghost" size="icon" className="text-blue-600">
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                          </Link>
                           <Button variant="ghost" size="icon" className="text-gray-400" onClick={() => { if (confirm("Supprimer cette inscription ?")) supprimer(ins.id) }}>
                             <Trash2 className="h-4 w-4" />
                           </Button>

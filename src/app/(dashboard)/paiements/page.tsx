@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { PageTransition } from "@/components/animations/page-transition"
 import { FadeInView } from "@/components/animations/fade-in-view"
-import { FileText } from "lucide-react"
+import { FileText, Printer } from "lucide-react"
 import { formatMontant } from "@/lib/utils"
 import { exportCSV } from "@/lib/export"
 import { supabase } from "@/lib/supabase"
@@ -15,7 +16,7 @@ import { useUser } from "@/lib/hooks/use-user"
 import { Skeleton } from "@/components/ui/skeleton"
 import { motion } from "framer-motion"
 import { staggerContainer, statCardItem } from "@/lib/animations"
-import { MobileMoneyDialog } from "./mobile-money-dialog"
+import { PaiementDialog } from "./paiement-dialog"
 
 interface PaiementRow {
   id: string
@@ -56,7 +57,7 @@ export default function PaiementsPage() {
   const [stats, setStats] = useState({ mois: 0, orange_money: 0, mtn_momo: 0, especes: 0 })
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const onLoad = useEffectEvent(async () => {
+  const load = useCallback(async () => {
     if (!profile?.ecole_id) return
     const { data } = await supabase
       .from("paiements")
@@ -89,8 +90,16 @@ export default function PaiementsPage() {
       })
     }
     setLoading(false)
-  })
-  useEffect(() => { onLoad() }, [refreshKey])
+  }, [profile?.ecole_id])
+
+  useEffect(() => { load() }, [load, refreshKey])
+
+  useEffect(() => {
+    if (profile === null) {
+      const timer = setTimeout(() => { if (loading) setLoading(false) }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [profile])
 
   function handleExport() {
     exportCSV("paiements",
@@ -151,6 +160,17 @@ export default function PaiementsPage() {
         </Badge>
       ),
     },
+    {
+      key: "actions",
+      label: "",
+      cell: (p) => (
+        <Link href={`/paiements/recu/${p.id}`}>
+          <Button variant="ghost" size="icon" className="text-blue-600">
+            <Printer className="h-4 w-4" />
+          </Button>
+        </Link>
+      ),
+    },
   ]
 
   const StatCardSkeleton = () => (
@@ -170,7 +190,7 @@ export default function PaiementsPage() {
               <Button variant="outline" onClick={handleExport}>
                 <FileText className="h-4 w-4 mr-2" />Exporter
               </Button>
-              <MobileMoneyDialog
+              <PaiementDialog
                 ecoleId={profile?.ecole_id}
                 onSuccess={() => setRefreshKey((k) => k + 1)}
               />
@@ -258,7 +278,14 @@ export default function PaiementsPage() {
                       <Badge variant="info" size="sm">{methodes[p.methode] || p.methode}</Badge>
                       <span>{new Date(p.date_paiement).toLocaleDateString("fr-CI")}</span>
                     </div>
-                    <span className="font-bold text-sm">{formatMontant(p.montant)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm">{formatMontant(p.montant)}</span>
+                      <Link href={`/paiements/recu/${p.id}`}>
+                        <Button variant="ghost" size="icon" className="text-blue-600 h-8 w-8">
+                          <Printer className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               )}

@@ -1,5 +1,19 @@
 import { NextResponse } from "next/server"
 import { createWorker } from "tesseract.js"
+import os from "os"
+import path from "path"
+
+export const maxDuration = 120
+
+const OCR_TIMEOUT = 90_000
+
+function timeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let id: ReturnType<typeof setTimeout>
+  const timer = new Promise<never>((_, reject) => {
+    id = setTimeout(() => reject(new Error(`Timeout après ${ms / 1000}s`)), ms)
+  })
+  return Promise.race([promise, timer]).finally(() => clearTimeout(id))
+}
 
 export async function POST(request: Request) {
   const formData = await request.formData()
@@ -21,14 +35,25 @@ export async function POST(request: Request) {
   try {
     const buffer = Buffer.from(await file.arrayBuffer())
 
-    const worker = await createWorker("fra")
+    const cachePath = path.join(os.tmpdir(), "tessdata")
+
+    const worker = await timeout(
+      createWorker("fra", undefined, {
+        cachePath,
+        cacheMethod: "write",
+        logger: (m) => { if (m.status === "loading language traineddata") void m },
+      }),
+      OCR_TIMEOUT
+    )
+
     const { data } = await worker.recognize(buffer)
     await worker.terminate()
 
     return NextResponse.json({ text: data.text.trim() })
   } catch (err) {
+    const message = err instanceof Error ? err.message : "inconnue"
     return NextResponse.json(
-      { error: "Erreur lors de l'OCR: " + (err instanceof Error ? err.message : "inconnue") },
+      { error: "Erreur lors de l'OCR: " + message },
       { status: 500 }
     )
   }

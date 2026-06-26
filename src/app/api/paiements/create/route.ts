@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -12,9 +12,7 @@ export async function POST(request: NextRequest) {
         cookies: {
           getAll() { return cookieStore.getAll() },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
           },
         },
       }
@@ -26,21 +24,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { eleve_id, montant, methode, telephone } = body
+    const { eleve_id, montant, methode, echeancier_id, reference: refCustom } = body
 
-    if (!eleve_id || !montant || !methode || !telephone) {
-      return NextResponse.json({ error: "Champs obligatoires manquants" }, { status: 400 })
+    if (!eleve_id || !montant || !methode) {
+      return NextResponse.json({ error: "Élève, montant et méthode requis" }, { status: 400 })
     }
 
-    if (!["orange_money", "mtn_momo"].includes(methode)) {
+    const methodesValides = ["orange_money", "mtn_momo", "especes", "virement", "cheque"]
+    if (!methodesValides.includes(methode)) {
       return NextResponse.json({ error: "Méthode de paiement invalide" }, { status: 400 })
     }
 
-    const reference = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    const reference = refCustom || `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
 
-    // Find or create an echeancier for this student
-    let echeancierId = body.echeancier_id || null
-    if (!echeancierId) {
+    let targetEcheancierId = echeancier_id || null
+
+    if (!targetEcheancierId) {
       const { data: existing } = await supabase
         .from("echeanciers")
         .select("id")
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
 
       if (existing) {
-        echeancierId = existing.id
+        targetEcheancierId = existing.id
       } else {
         const { data: eleve } = await supabase
           .from("eleves")
@@ -133,10 +132,10 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (echError) {
-          console.error("Echeancier Error:", echError)
+          console.error("Echeancier insert error:", echError)
           return NextResponse.json({ error: "Erreur de création d'échéancier" }, { status: 500 })
         }
-        echeancierId = newEch.id
+        targetEcheancierId = newEch.id
       }
     }
 
@@ -144,10 +143,9 @@ export async function POST(request: NextRequest) {
       .from("paiements")
       .insert({
         eleve_id,
-        echeancier_id: echeancierId,
+        echeancier_id: targetEcheancierId,
         montant,
         methode,
-        telephone,
         reference,
         statut: "confirme",
         date_paiement: new Date().toISOString(),
@@ -156,14 +154,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error("Insert Error:", insertError)
+      console.error("Paiement insert error:", insertError)
       return NextResponse.json({ error: `Erreur lors de l'enregistrement: ${insertError.message}` }, { status: 500 })
     }
 
     const { data: echeancier } = await supabase
       .from("echeanciers")
       .select("montant_restant, montant_total")
-      .eq("id", echeancierId)
+      .eq("id", targetEcheancierId)
       .single()
 
     const nouveauRestant = Math.max(0, (echeancier?.montant_restant ?? 0) - montant)
@@ -172,17 +170,16 @@ export async function POST(request: NextRequest) {
     await supabase
       .from("echeanciers")
       .update({ montant_restant: nouveauRestant, statut: nouveauStatut })
-      .eq("id", echeancierId)
+      .eq("id", targetEcheancierId)
 
     return NextResponse.json({
       success: true,
-      message: "Paiement effectué avec succès",
+      message: "Paiement enregistré avec succès",
       data: paiement,
       echeancier: { montant_restant: nouveauRestant, statut: nouveauStatut },
-      recu_url: `/api/recus/${reference}`,
     })
   } catch (error: unknown) {
-    console.error("Mobile Money Error:", error)
+    console.error("Paiement create error:", error)
     return NextResponse.json({ error: "Erreur de paiement" }, { status: 500 })
   }
 }

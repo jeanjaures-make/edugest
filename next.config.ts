@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["tesseract.js", "tesseract.js-core"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "ebhiqzribyoytavzmned.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
   async headers() {
     return [
       {

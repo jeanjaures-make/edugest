@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Download, FileText, Loader2 } from "lucide-react"
@@ -11,14 +11,20 @@ import { supabase } from "@/lib/supabase"
 import { useUser } from "@/lib/hooks/use-user"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import { PageTransition } from "@/components/animations/page-transition"
+import { FadeInView } from "@/components/animations/fade-in-view"
+import { motion } from "framer-motion"
+import { staggerContainer, statCardItem } from "@/lib/animations"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 
 interface ClasseItem { id: string; libelle: string }
 interface BulletinRow {
   id: string
-  eleve: { nom: string; prenom: string } | null
-  classe: { libelle: string } | null
+  eleve_id: string
+  eleve_nom: string
+  eleve_prenom: string
+  classe_libelle: string | null
   trimestre: number
   moyenne_generale: number | null
   rang: number | null
@@ -31,32 +37,62 @@ export default function BulletinsPage() {
   const [classes, setClasses] = useState<ClasseItem[]>([])
   const [bulletins, setBulletins] = useState<BulletinRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [bulletinLoading, setBulletinLoading] = useState(false)
   const [classeId, setClasseId] = useState("")
   const [trimestre, setTrimestre] = useState("2")
   const [generating, setGenerating] = useState(false)
+  const [ecole, setEcole] = useState<{ nom: string; adresse: string | null; telephone: string | null; email: string | null; logo_url: string | null; code_etablissement: string | null } | null>(null)
 
-  const onLoadClasses = useEffectEvent(() => {
+  const loadClasses = useCallback(async () => {
     if (!profile?.ecole_id) { setLoading(false); return }
-    supabase.from("classes").select("id, libelle").eq("ecole_id", profile.ecole_id).order("libelle").then(({ data }) => {
-      if (data) setClasses(data)
-      setLoading(false)
-    })
-  })
-  useEffect(() => { onLoadClasses() }, [])
+    let query = supabase.from("classes").select("id, libelle").eq("ecole_id", profile.ecole_id)
+    if (profile.role === "enseignant") {
+      query = query.eq("professeur_principal_id", profile.id)
+    }
+    const { data } = await query.order("libelle")
+    if (data) setClasses(data)
+    setLoading(false)
+  }, [profile?.ecole_id, profile?.role, profile?.id])
 
-  async function loadBulletins() {
+  useEffect(() => { loadClasses() }, [loadClasses])
+
+  useEffect(() => {
     if (!profile?.ecole_id) return
-    const { data } = await supabase
-      .from("bulletins")
-      .select("id, trimestre, moyenne_generale, rang, appreciation, created_at, eleve:eleves(nom, prenom), classe:classes(libelle)")
-      .eq("classe.ecole_id", profile.ecole_id)
-      .eq("trimestre", parseInt(trimestre))
-      .order("rang", { ascending: true })
-    if (data) setBulletins(data as unknown as BulletinRow[])
-  }
+    supabase.from("ecoles").select("nom, adresse, telephone, email, logo_url, code_etablissement")
+      .eq("id", profile.ecole_id).single().then(({ data }) => { if (data) setEcole(data) })
+  }, [profile?.ecole_id])
 
-  const onLoadBulletins = useEffectEvent(() => loadBulletins())
-  useEffect(() => { onLoadBulletins() }, [])
+  const loadBulletins = useCallback(async () => {
+    if (!profile?.ecole_id) return
+    setBulletinLoading(true)
+    let query = supabase
+      .from("bulletins")
+      .select("id, eleve_id, trimestre, moyenne_generale, rang, appreciation, created_at, eleve:eleves!inner(nom, prenom), classe:classes!inner(libelle)")
+      .eq("eleve.ecole_id", profile.ecole_id)
+
+    if (classeId) query = query.eq("classe_id", classeId)
+    if (trimestre) query = query.eq("trimestre", parseInt(trimestre))
+
+    const { data } = await query.order("rang", { ascending: true })
+
+    if (data) {
+      setBulletins((data as unknown as { id: string; eleve_id: string; trimestre: number; moyenne_generale: number | null; rang: number | null; appreciation: string | null; created_at: string; eleve: { nom: string; prenom: string } | null; classe: { libelle: string } | null }[]).map((b) => ({
+        id: b.id,
+        eleve_id: b.eleve_id,
+        eleve_nom: b.eleve?.nom ?? "",
+        eleve_prenom: b.eleve?.prenom ?? "",
+        classe_libelle: b.classe?.libelle ?? null,
+        trimestre: b.trimestre,
+        moyenne_generale: b.moyenne_generale,
+        rang: b.rang,
+        appreciation: b.appreciation,
+        created_at: b.created_at,
+      })))
+    }
+    setBulletinLoading(false)
+  }, [profile?.ecole_id, classeId, trimestre])
+
+  useEffect(() => { loadBulletins() }, [loadBulletins])
 
   async function generateBulletins() {
     if (!profile?.ecole_id || !classeId) return
@@ -77,17 +113,24 @@ export default function BulletinsPage() {
     const { data: eleve } = await supabase
       .from("eleves")
       .select("nom, prenom, matricule, date_naissance, lieu_naissance, sexe, nationalite")
-      .eq("id", bulletin.eleve?.prenom)
+      .eq("id", bulletin.eleve_id)
       .maybeSingle()
 
     const { data: notesData } = await supabase
       .from("notes")
-      .select("valeur, appreciation, evaluation:evaluations!inner(libelle, coefficient, matiere:matieres(libelle, coefficient))")
-      .eq("evaluation.classe_id", bulletin.eleve?.prenom)
+      .select("valeur, appreciation, evaluation:evaluations!inner(libelle, coefficient, enseignant:personnel(nom, prenom), matiere:matieres(libelle, coefficient))")
+      .eq("eleve_id", bulletin.eleve_id)
       .eq("evaluation.trimestre", bulletin.trimestre)
+      .eq("evaluation.classe_id", classeId)
 
-    const nom = `${bulletin.eleve?.prenom || ""} ${bulletin.eleve?.nom || ""}`.toUpperCase()
-    const classe = bulletin.classe?.libelle || ""
+    const { count: effectif } = await supabase
+      .from("eleves")
+      .select("id", { count: "exact", head: true })
+      .eq("classe_id", classeId)
+      .eq("statut", "actif")
+
+    const nom = `${bulletin.eleve_prenom} ${bulletin.eleve_nom}`.toUpperCase()
+    const classe = bulletin.classe_libelle || ""
     const trim = bulletin.trimestre
     const moyenne = (bulletin.moyenne_generale ?? 0).toFixed(2)
     const rang = bulletin.rang || "-"
@@ -96,6 +139,12 @@ export default function BulletinsPage() {
     const lieuNaiss = eleve?.lieu_naissance ?? ""
     const sexe = eleve?.sexe ?? ""
     const nationalite = eleve?.nationalite ?? "Ivoirienne"
+    const ecoleNom = ecole?.nom || "Établissement scolaire"
+    const ecoleAdresse = ecole?.adresse || ""
+    const ecoleTel = ecole?.telephone || ""
+    const ecoleEmail = ecole?.email || ""
+    const ecoleCode = ecole?.code_etablissement || ""
+    const ecoleLogo = ecole?.logo_url || ""
     const jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
     const mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
     const d = new Date()
@@ -105,217 +154,253 @@ export default function BulletinsPage() {
       return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;")
     }
 
-    const lignesNotes = ((notesData || []) as unknown as { valeur: number | null; appreciation: string | null; evaluation: { libelle: string; coefficient: number; matiere: { libelle: string } | null } | null }[]).map((n) => ({
-      matiere: escapeHtml(n.evaluation?.matiere?.libelle || ""),
-      moy: (n.valeur ?? 0).toFixed(2).replace(".", ","),
-      coeff: n.evaluation?.coefficient || 1,
-      mCoef: ((n.valeur ?? 0) * (n.evaluation?.coefficient || 1)).toFixed(2).replace(".", ","),
-      prof: "",
-      appr: escapeHtml(n.appreciation || ""),
-    }))
+    type NoteRow = { valeur: number | null; appreciation: string | null; evaluation: { libelle: string; coefficient: number; enseignant: { nom: string; prenom: string } | null; matiere: { libelle: string; coefficient: number } | null } | null }
+    type SubjectRow = { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }
+
+    const subjectMap = new Map<string, { total: number; coeffSum: number; matCoeff: number; enseignant: string; appreciations: string[] }>()
+    for (const n of (notesData || []) as unknown as NoteRow[]) {
+      const matiere = n.evaluation?.matiere?.libelle || "Inconnue"
+      if (!subjectMap.has(matiere)) {
+        subjectMap.set(matiere, {
+          total: 0,
+          coeffSum: 0,
+          matCoeff: n.evaluation?.matiere?.coefficient || 1,
+          enseignant: n.evaluation?.enseignant
+            ? `${n.evaluation.enseignant.prenom} ${n.evaluation.enseignant.nom}`
+            : "",
+          appreciations: [],
+        })
+      }
+      const entry = subjectMap.get(matiere)!
+      const val = n.valeur ?? 0
+      const evalCoeff = n.evaluation?.coefficient || 1
+      entry.total += val * evalCoeff
+      entry.coeffSum += evalCoeff
+      if (n.appreciation) entry.appreciations.push(n.appreciation)
+    }
+
+    const lignesNotes: SubjectRow[] = []
+    for (const [matiere, s] of subjectMap) {
+      const moy = s.coeffSum > 0 ? (s.total / s.coeffSum) : 0
+      lignesNotes.push({
+        matiere: escapeHtml(matiere),
+        moy: moy.toFixed(2).replace(".", ","),
+        coeff: s.matCoeff,
+        mCoef: (moy * s.matCoeff).toFixed(2).replace(".", ","),
+        prof: escapeHtml(s.enseignant),
+        appr: escapeHtml(s.appreciations.filter(Boolean).join("; ")),
+      })
+    }
 
     const nomEscaped = escapeHtml(nom)
     const classeEscaped = escapeHtml(classe)
     const matriculeEscaped = escapeHtml(matricule)
     const nationaliteEscaped = escapeHtml(nationalite)
     const lieuNaissEscaped = escapeHtml(lieuNaiss)
+    const ecoleNomEscaped = escapeHtml(ecoleNom)
+    const ecoleAdresseEscaped = escapeHtml(ecoleAdresse)
+    const ecoleTelEscaped = escapeHtml(ecoleTel)
+    const ecoleEmailEscaped = escapeHtml(ecoleEmail)
+    const ecoleCodeEscaped = escapeHtml(ecoleCode)
+    const logoImg = ecoleLogo
+      ? `<img src="${ecoleLogo}" alt="Logo" style="width:65px; height:65px; object-fit:contain;" />`
+      : `<div style="width:65px; height:65px; border:1px solid #000; margin:auto; display:flex; align-items:center; justify-content:center; font-size:8px; color:#666;">LOGO</div>`
+
+    const totalCoeff = lignesNotes.reduce((s, l) => s + l.coeff, 0)
+    const totalPoints = lignesNotes.reduce((s, l) => s + parseFloat(l.mCoef.replace(",", ".")), 0)
+    const anneeScolaire = `${new Date().getFullYear()-1} - ${new Date().getFullYear()}`
+    const trimLabel = trim === 1 ? "1er" : trim === 2 ? "2ème" : "3ème"
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 8px; color: #000; margin: 5px; padding: 0; }
-  table { width: 100%; border-collapse: collapse; }
-  td, th { border: 1px solid #000; padding: 1px 3px; font-size: 8px; vertical-align: top; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 11px; color: #000; }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 12mm 12mm 10mm 15mm;
+    box-sizing: border-box;
+    background: white;
+    margin: 0 auto;
+  }
+  @media print {
+    body { margin: 0; }
+    .page { box-shadow: none; margin: 0; }
+  }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
+  td, th { border: 1px solid #000; padding: 5px 4px; font-size: 11px; vertical-align: middle; }
   .c { text-align: center; }
   .r { text-align: right; }
+  .l { text-align: left; }
   .b { font-weight: bold; }
-  .bg-gray { background-color: #eee; }
-  .checkbox { border: 1px solid #000; width: 10px; height: 10px; display: inline-block; margin-right: 3px; vertical-align: middle; }
+  .i { font-style: italic; }
+  .u { text-decoration: underline; }
+  .bg-gray { background-color: #e8e8e8; }
+  .fs-9 { font-size: 9px; }
+  .fs-10 { font-size: 10px; }
+  .no-border td, .no-border th { border: none; }
+  .sign-line { border-top: 1px solid #000; width: 80%; margin: 1px auto 0; padding-top: 1px; }
+  .checkbox { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; margin-right: 3px; vertical-align: middle; background: white; }
 </style></head><body>
+<div class="page">
 
-<!-- 1. EN-TETE -->
-<table>
-  <tr>
-    <td style="width:70px; text-align:center; vertical-align:middle;">
-      <div style="width:45px; height:45px; border:1px solid #000; margin:auto; display:flex; align-items:center; justify-content:center; font-size:7px;">LOGO<br>CACHET</div>
-    </td>
-    <td style="text-align:center; vertical-align:middle;">
-      <div style="font-size:9px; font-weight:bold;">REPUBLIQUE DE CÔTE D'IVOIRE</div>
-      <div style="font-size:7px;">MINISTERE DE L'EDUCATION NATIONALE<br>ET DE L'ENSEIGNEMENT TECHNIQUE</div>
-      <div style="font-size:8px; font-weight:bold;">Lycée Classique d'Abidjan</div>
-    </td>
-    <td style="width:130px; font-size:7px; vertical-align:top;">
-      Adresse : BP 39 ABIDJAN 08<br>
-      Téléphone : 22443517<br>
-      E-mail :<br>lyceeclassique@drenabidjan1.net<br>
-      Code : 000395<br>
-      Statut : Public
-    </td>
-  </tr>
-</table>
+  <!-- ===== EN-TETE ===== -->
+  <table class="no-border" style="margin-bottom:6px;">
+    <tr>
+      <td style="width:75px; border:none; text-align:center; vertical-align:middle;">
+        ${logoImg}
+      </td>
+      <td style="border:none; text-align:center; vertical-align:middle;">
+        <div style="font-size:12px; font-weight:bold;">RÉPUBLIQUE DE CÔTE D'IVOIRE</div>
+        <div style="font-size:10px; font-style:italic;">Union - Discipline - Travail</div>
+        <div style="font-size:10px;">Ministère de l'Éducation Nationale et de l'Alphabétisation</div>
+        <div style="font-size:11px; font-weight:bold; text-decoration:underline; margin-top:1px;">${ecoleNomEscaped}</div>
+      </td>
+      <td style="width:130px; border:none; text-align:right; vertical-align:top; font-size:10px;">
+        <b>Année Scolaire ${anneeScolaire}<br>${trimLabel} TRIMESTRE</b>
+      </td>
+    </tr>
+  </table>
 
-<!-- 2. TITRE -->
-<table style="margin-top:4px;">
-  <tr>
-    <td class="c" style="padding:4px;">
-      <div style="font-size:12px; font-weight:bold;">BULLETIN PROVISOIRE</div>
-      <div style="font-size:9px;">Trimestre ${trim} - Année scolaire 2025-2026</div>
-    </td>
-  </tr>
-</table>
+  <!-- ===== IDENTITE ELEVE ===== -->
+  <table style="margin-bottom:4px;">
+    <tr>
+      <td style="width:50%; text-align:left; vertical-align:middle; padding:8px 6px; font-size:12px;" colspan="2"><b>Nom et Prénom :</b> ${nomEscaped}</td>
+      <td style="width:25%; text-align:left; vertical-align:middle; padding:8px 6px; font-size:12px;"><b>Matricule :</b> ${matriculeEscaped}</td>
+      <td style="width:25%; text-align:left; vertical-align:middle; padding:8px 6px; font-size:12px;"><b>Né(e) le :</b> ${dateNaiss}</td>
+    </tr>
+    <tr>
+      <td style="width:35%; text-align:left; vertical-align:middle; padding:8px 6px; font-size:12px;"><b>Classe :</b> ${classeEscaped}</td>
+      <td style="width:15%; text-align:left; vertical-align:middle; padding:8px 6px; font-size:12px;"><b>Effectif :</b> ${effectif ?? 0}</td>
+      <td style="width:25%; text-align:left; vertical-align:middle; padding:8px 6px; font-size:12px;"><b>Sexe :</b> ${sexe === "M" ? "Masculin" : sexe === "F" ? "Féminin" : ""}</td>
+      <td style="width:25%; text-align:left; vertical-align:middle; padding:8px 6px; font-size:12px;"><b>Nationalité :</b> ${nationaliteEscaped}</td>
+    </tr>
+  </table>
 
-<!-- 3. IDENTITE ELEVE -->
-<table style="margin-top:4px;">
-  <tr>
-    <td colspan="5" style="font-weight:bold; font-size:10px;">${nomEscaped}</td>
-    <td style="width:15%;" class="r">Matricule : ${matriculeEscaped}</td>
-  </tr>
-  <tr>
-    <td style="width:13%;">Classe : <span class="b">${classeEscaped}</span></td>
-    <td style="width:10%;">Effectif : <span class="b">0</span></td>
-    <td style="width:10%;">Sexe : <span class="b">${sexe === "M" ? "M" : sexe === "F" ? "F" : ""}</span></td>
-    <td style="width:13%;">Nationalité : <span class="b">${nationaliteEscaped}</span></td>
-    <td style="width:15%;">Né(e) le : <span class="b">${dateNaiss}</span></td>
-    <td style="width:13%;">à : <span class="b">${lieuNaissEscaped}</span></td>
-  </tr>
-  <tr>
-    <td>Redoublant : <span class="b">Non</span></td>
-    <td>Affecté(e) : <span class="b">Oui</span></td>
-    <td colspan="4" class="c b" style="font-size:10px;">Année Scolaire 2025-2026</td>
-  </tr>
-</table>
+  <!-- ===== TABLEAU DES NOTES ===== -->
+  <table>
+    <thead>
+      <tr class="bg-gray">
+        <th style="width:5%;">N°</th>
+        <th style="width:26%;">DISCIPLINES</th>
+        <th style="width:7%;">Crédit</th>
+        <th style="width:7%;">Coef</th>
+        <th style="width:10%;">Note<br>Élève</th>
+        <th style="width:10%;">Moy.<br>Classe</th>
+        <th style="width:18%;">APPRÉCIATION</th>
+        <th style="width:17%;">PROFESSEUR</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${lignesNotes.length > 0 ? lignesNotes.map((l, i) => `<tr>
+        <td class="c">${i + 1}</td>
+        <td>${l.matiere}</td>
+        <td class="c">${l.coeff}</td>
+        <td class="c">${l.coeff}</td>
+        <td class="c b">${l.moy}</td>
+        <td class="c">-</td>
+        <td class="fs-10">${l.appr}</td>
+        <td class="fs-10">${l.prof}</td>
+      </tr>`).join("") : `<tr><td colspan="8" class="c" style="padding:12px;">Aucune note saisie pour ce trimestre</td></tr>`}
+    </tbody>
+    <tfoot>
+      <tr class="b">
+        <td colspan="3" class="l">Total des coefficients :</td>
+        <td class="c">${totalCoeff}</td>
+        <td class="c">${totalPoints.toFixed(2).replace(".", ",")}</td>
+        <td colspan="3" class="c">-</td>
+      </tr>
+      <tr class="b">
+        <td colspan="3" class="l">Moyenne générale de l'élève :</td>
+        <td colspan="2" class="c" style="font-size:13px;">${moyenne.replace(".", ",")} / 20</td>
+        <td colspan="3" class="c">-</td>
+      </tr>
+      <tr class="b">
+        <td colspan="3" class="l">Moyenne générale de la classe :</td>
+        <td colspan="2" class="c">- / 20</td>
+        <td colspan="3"></td>
+      </tr>
+      <tr class="b">
+        <td colspan="3" class="l">Plus haute moyenne de la classe :</td>
+        <td colspan="2" class="c">- / 20</td>
+        <td colspan="3"></td>
+      </tr>
+      <tr class="b">
+        <td colspan="3" class="l">Plus basse moyenne de la classe :</td>
+        <td colspan="2" class="c">- / 20</td>
+        <td colspan="3"></td>
+      </tr>
+      <tr class="b">
+        <td colspan="3" class="l">Rang de l'élève :</td>
+        <td colspan="2" class="c" style="font-size:13px;">${rang === "-" ? "-" : rang + "e / " + (effectif ?? 0)}</td>
+        <td colspan="3"></td>
+      </tr>
+    </tfoot>
+  </table>
 
-<!-- 4. TABLEAU NOTES -->
-<table style="margin-top:4px;">
-  <tr class="bg-gray">
-    <th style="width:22%;">MATIERE</th>
-    <th style="width:8%;">MOY</th>
-    <th style="width:7%;">COEFF</th>
-    <th style="width:10%;">MoyXCoeff</th>
-    <th style="width:7%;">RANG</th>
-    <th style="width:15%;">PROFESSEUR</th>
-    <th style="width:31%;">APPRECIATION / EMARGEMENT</th>
-  </tr>
-  ${lignesNotes.length > 0 ? lignesNotes.map((l: { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }) => `<tr>
-    <td style="font-size:7px;">${l.matiere}</td>
-    <td class="c" style="font-size:7px;">${l.moy}</td>
-    <td class="c" style="font-size:7px;">${l.coeff}</td>
-    <td class="c" style="font-size:7px;">${l.mCoef}</td>
-    <td class="c" style="font-size:7px;">-</td>
-    <td style="font-size:7px;"></td>
-    <td style="font-size:7px;">${l.appr}</td>
-  </tr>`).join("") : `<tr><td colspan="7" class="c" style="padding:8px; font-size:8px;">Aucune note saisie</td></tr>`}
-  <tr>
-    <td colspan="2" class="b" style="font-size:7px;">TOTAUX</td>
-    <td class="c b" style="font-size:7px;">${lignesNotes.reduce((s: number, l: { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }) => s + l.coeff, 0)}</td>
-    <td class="c b" style="font-size:7px;">${lignesNotes.reduce((s: number, l: { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }) => s + parseFloat(l.mCoef.replace(",", ".")), 0).toFixed(2).replace(".", ",")}</td>
-    <td colspan="3" style="font-size:7px;"></td>
-  </tr>
-</table>
+  <!-- ===== OBSERVATIONS ===== -->
+  <table style="margin-top:2px;">
+    <tr>
+      <td style="padding:4px 5px; font-size:12px;"><b>Observations du Conseil de Classe :</b></td>
+    </tr>
+    <tr>
+      <td style="padding:4px 5px; height:32px; vertical-align:middle; font-size:12px; font-style:italic;">
+        ${escapeHtml(bulletin.appreciation || "")}
+      </td>
+    </tr>
+  </table>
 
-<!-- 5. MOYENNE + RANG -->
-<table style="margin-top:4px;">
-  <tr>
-    <td class="b" style="font-size:9px;">MOY. TRIM. : ${moyenne.replace(".", ",")}/20 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; RANG : ${rang === "-" ? "-" : rang + "e"}/--</td>
-  </tr>
-</table>
+  <!-- ===== DECISION + ABSENCES ===== -->
+  <table style="margin-top:2px;">
+    <tr>
+      <td style="width:55%; padding:6px 5px; font-size:12px; vertical-align:middle;">
+        <b>Décision du conseil de classe :</b><br>
+        <span class="checkbox"></span> Passage &nbsp;
+        <span class="checkbox"></span> Redoublement &nbsp;
+        <span class="checkbox"></span> Orientation
+      </td>
+      <td style="width:45%; padding:6px 5px; font-size:12px; vertical-align:middle;">
+        <b>Absences :</b><br>
+        Justifiées : <span class="checkbox"></span> 0 &nbsp;&nbsp;
+        Non justifiées : <span class="checkbox"></span> 0 &nbsp;&nbsp;
+        Retards : <span class="checkbox"></span> 0
+      </td>
+    </tr>
+  </table>
 
-<!-- 6. ABSENCES -->
-<table style="margin-top:4px;">
-  <tr>
-    <td style="font-size:7px;">
-      Absences justifiées : 0 Heure(s) &nbsp;&nbsp;&nbsp;&nbsp; Absences non justifiées : 0 Heure(s) &nbsp;&nbsp;&nbsp;&nbsp; Appréciations :
-    </td>
-  </tr>
-</table>
+  <!-- ===== SIGNATURES 3 COLONNES ===== -->
+  <table style="margin-top:8px;">
+    <tr>
+      <td style="width:33%; text-align:center; vertical-align:top; border:none;">
+        <div><b>Le Professeur Principal</b></div>
+        <div style="height:22px;"></div>
+        <div class="sign-line"></div>
+        <div class="fs-9" style="margin-top:2px;">Date : ....../....../${new Date().getFullYear()}</div>
+      </td>
+      <td style="width:34%; text-align:center; vertical-align:top; border:none;">
+        <div><b>Le Délégué de classe</b></div>
+        <div style="height:22px;"></div>
+        <div class="sign-line"></div>
+      </td>
+      <td style="width:33%; text-align:center; vertical-align:top; border:none;">
+        <div><b>Le Chef d'Établissement</b></div>
+        <div style="height:6px;"></div>
+        <div style="width:45px; height:45px; border:2px solid #000; border-radius:50%; margin:2px auto; display:flex; align-items:center; justify-content:center; font-size:6px; color:#666;">CACHET</div>
+        <div class="sign-line" style="margin-top:4px;"></div>
+      </td>
+    </tr>
+  </table>
 
-<!-- 7. 3 BLOCS: Résultat / Distinctions / Sanctions -->
-<table style="margin-top:4px;">
-  <tr>
-    <td style="width:33%; vertical-align:top;">
-      <table>
-        <tr><td class="b bg-gray" style="font-size:7px;">Résultat Trimestriel</td></tr>
-        <tr><td style="font-size:7px;">
-          Plus forte moyenne : --/20<br>
-          Plus faible Moyenne : --/20<br>
-          Moyenne Classe : --/20
-        </td></tr>
-      </table>
-    </td>
-    <td style="width:33%; vertical-align:top;">
-      <table>
-        <tr><td class="b bg-gray" style="font-size:7px;">Distinctions</td></tr>
-        <tr><td style="font-size:7px;">
-          <div><span class="checkbox"></span>Tableau d'honneur</div>
-          <div><span class="checkbox"></span>Refusé</div>
-          <div><span class="checkbox"></span>T. d'honneur + Encouragement</div>
-          <div><span class="checkbox"></span>T. d'honneur + Félicitations</div>
-        </td></tr>
-      </table>
-    </td>
-    <td style="width:33%; vertical-align:top;">
-      <table>
-        <tr><td class="b bg-gray" style="font-size:7px;">Sanctions</td></tr>
-        <tr><td style="font-size:7px;">
-          <div><span class="checkbox"></span>Avertissement travail insuffisant</div>
-          <div><span class="checkbox"></span>Blâme pour Travail insuffisant</div>
-          <div><span class="checkbox"></span>Avertissement pour mauvaise Conduite</div>
-          <div><span class="checkbox"></span>Blâme pour mauvaise Conduite</div>
-        </td></tr>
-      </table>
-    </td>
-  </tr>
-</table>
+  <!-- ===== PIED DE PAGE ===== -->
+  <table class="no-border" style="margin-top:4px;">
+    <tr>
+      <td style="width:33%; border:none; font-size:9px;">${ecoleNomEscaped}</td>
+      <td style="width:34%; border:none; text-align:center; font-size:9px;">EduGest CI</td>
+      <td style="width:33%; border:none; text-align:right; font-size:9px;">Imprimé le ${dateStr}</td>
+    </tr>
+  </table>
 
-<!-- 8. 3 BLOCS BAS: Rappel / Appréciation / Visa -->
-<table style="margin-top:4px;">
-  <tr>
-    <td style="width:33%; vertical-align:top;">
-      <table>
-        <tr><td class="b bg-gray" style="font-size:7px;">Rappel</td></tr>
-        <tr><td style="font-size:7px;">
-          Moy 1er Trim : --<br>
-          Rang : --
-        </td></tr>
-      </table>
-    </td>
-    <td style="width:34%; vertical-align:top;">
-      <table style="height:100%;">
-        <tr><td class="b bg-gray" style="font-size:7px;">Appréciation du Conseil de classe</td></tr>
-        <tr><td style="font-size:7px; font-style:italic;">
-          ${escapeHtml(bulletin.appreciation || "Résultat passable, peut mieux faire !")}
-        </td></tr>
-        <tr><td style="font-size:7px;">
-          Le Professeur Principal :<br>
-          <div style="height:15px;"></div>
-          ${profile?.nom ? "M. " + escapeHtml(profile.nom) : ""}
-        </td></tr>
-      </table>
-    </td>
-    <td style="width:33%; vertical-align:top;">
-      <table style="height:100%;">
-        <tr><td class="b bg-gray" style="font-size:7px;">VISA DU CHEF D'ETABLISSEMENT</td></tr>
-        <tr><td style="font-size:7px;">
-          ABIDJAN, le ${dateStr}<br>
-          Le Proviseur
-          <div style="width:40px; height:40px; border:2px solid #000; border-radius:50%; margin:2px auto; display:flex; align-items:center; justify-content:center; font-size:6px;">CACHET<br>DE<br>L'ETABLISSEMENT</div>
-          <div style="height:4px;"></div>
-          <div style="border:1px solid #000; padding:1px; text-align:center; font-size:6px; letter-spacing:1px;">||||||||||</div>
-        </td></tr>
-      </table>
-    </td>
-  </tr>
-</table>
-
-<!-- 9. PIED DE PAGE -->
-<table style="margin-top:4px;">
-  <tr>
-    <td style="width:30%; font-size:7px;">Lycée Classique d'Abidjan</td>
-    <td style="width:40%; font-size:7px; text-align:center;">EduGest CI, le logiciel de référence des Lycées et Collèges d'excellence</td>
-    <td style="width:30%; font-size:7px; text-align:right;">Imprimé le ${dateStr}</td>
-  </tr>
-</table>
-
+</div>
 </body></html>`
 
     const container = document.createElement("div")
@@ -339,7 +424,7 @@ export default function BulletinsPage() {
       const pageW = doc.internal.pageSize.getWidth()
       const imgH = (canvas.height * pageW) / canvas.width
       doc.addImage(imgData, "JPEG", 0, 0, pageW, imgH)
-      doc.save(`bulletin-${bulletin.eleve?.prenom || ""}-${bulletin.eleve?.nom || ""}-T${bulletin.trimestre}.pdf`)
+      doc.save(`bulletin-${bulletin.eleve_prenom}-${bulletin.eleve_nom}-T${bulletin.trimestre}.pdf`)
     } finally {
       document.body.removeChild(container)
     }
@@ -355,81 +440,137 @@ export default function BulletinsPage() {
       : 0,
   }
 
-  if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" /></div>
+  const columns: Column<BulletinRow>[] = [
+    {
+      key: "eleve", label: "Élève", sortable: true,
+      cell: (b) => <span className="font-medium">{b.eleve_prenom} {b.eleve_nom}</span>,
+    },
+    {
+      key: "classe", label: "Classe", sortable: true,
+      cell: (b) => <span>{b.classe_libelle}</span>,
+    },
+    {
+      key: "trimestre", label: "Trim.", sortable: true,
+      cell: (b) => <Badge variant="info" size="sm">T{b.trimestre}</Badge>,
+    },
+    {
+      key: "moyenne", label: "Moyenne", sortable: true,
+      cell: (b) => <span className="font-bold">{(b.moyenne_generale ?? 0).toFixed(1)}/20</span>,
+    },
+    {
+      key: "rang", label: "Rang", sortable: true,
+      cell: (b) => <span>{b.rang ? `${b.rang}e` : "-"}</span>,
+    },
+    {
+      key: "appreciation", label: "Appréciation",
+      cell: (b) => <span className="text-xs text-muted-foreground truncate max-w-[200px] block">{b.appreciation ?? "-"}</span>,
+    },
+    {
+      key: "date", label: "Date", sortable: true,
+      cell: (b) => <span className="text-xs text-muted-foreground">{b.created_at ? format(new Date(b.created_at), "dd/MM/yyyy", { locale: fr }) : "-"}</span>,
+    },
+    {
+      key: "actions", label: "",
+      cell: (b) => (
+        <Button variant="ghost" size="icon" onClick={() => downloadPdf(b)} title="Télécharger PDF">
+          <Download className="h-4 w-4 text-blue-600" />
+        </Button>
+      ),
+    },
+  ]
+
+  if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Bulletins</h2>
-          <p className="text-sm text-gray-500">Génération et consultation des bulletins de notes</p>
-        </div>
-        <div className="flex gap-2 items-end">
-          <div className="space-y-1">
-            <Label className="text-xs">Trimestre</Label>
-            <select className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm" value={trimestre} onChange={(e) => setTrimestre(e.target.value)}>
-              <option value="1">Trimestre 1</option>
-              <option value="2">Trimestre 2</option>
-              <option value="3">Trimestre 3</option>
-            </select>
+    <PageTransition>
+      <div className="space-y-6">
+        <FadeInView>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Bulletins</h1>
+              <p className="text-sm text-muted-foreground">Génération et consultation des bulletins de notes</p>
+            </div>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">Trimestre</Label>
+                <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm" value={trimestre} onChange={(e) => setTrimestre(e.target.value)}>
+                  <option value="1">Trimestre 1</option>
+                  <option value="2">Trimestre 2</option>
+                  <option value="3">Trimestre 3</option>
+                </select>
+              </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Classe</Label>
+                  <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm" value={classeId} onChange={(e) => setClasseId(e.target.value)}>
+                    <option value="">{profile?.role === "directeur" ? "Toutes les classes" : "Sélectionner une classe"}</option>
+                    {classes.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
+                  </select>
+                  {profile?.role === "enseignant" && classes.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">Vous n'êtes professeur principal d'aucune classe</p>
+                  )}
+                </div>
+              <Button onClick={generateBulletins} disabled={!classeId || generating}>
+                {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                {generating ? "Génération..." : "Générer"}
+              </Button>
+            </div>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Classe</Label>
-            <select className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm" value={classeId} onChange={(e) => setClasseId(e.target.value)}>
-              <option value="">Sélectionner</option>
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
-            </select>
-          </div>
-          <Button onClick={generateBulletins} disabled={!classeId || generating}>
-            {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-            {generating ? "Génération..." : "Générer"}
-          </Button>
-        </div>
-      </div>
+        </FadeInView>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card><CardContent className="p-6"><p className="text-sm text-gray-500">Bulletins</p><p className="text-2xl font-bold">{stats.total}</p></CardContent></Card>
-        <Card><CardContent className="p-6"><p className="text-sm text-gray-500">Moyenne générale</p><p className="text-2xl font-bold text-blue-600">{stats.moyenne}/20</p></CardContent></Card>
-        <Card><CardContent className="p-6"><p className="text-sm text-gray-500">Taux de réussite</p><p className="text-2xl font-bold text-green-600">{stats.reussite}%</p></CardContent></Card>
-      </div>
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+          <motion.div variants={statCardItem} custom={0}>
+            <Card className="overflow-hidden border-0">
+              <CardContent className="p-4 md:p-6 bg-gradient-to-br from-blue-600 to-blue-700 text-white">
+                <p className="text-xs md:text-sm text-blue-100">Bulletins</p>
+                <p className="text-xl md:text-2xl font-bold">{stats.total}</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div variants={statCardItem} custom={1}>
+            <Card className="overflow-hidden border-0">
+              <CardContent className="p-4 md:p-6 bg-gradient-to-br from-emerald-600 to-emerald-700 text-white">
+                <p className="text-xs md:text-sm text-emerald-100">Moyenne générale</p>
+                <p className="text-xl md:text-2xl font-bold">{stats.moyenne}/20</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+          <motion.div variants={statCardItem} custom={2}>
+            <Card className="overflow-hidden border-0">
+              <CardContent className="p-4 md:p-6 bg-gradient-to-br from-violet-600 to-violet-700 text-white">
+                <p className="text-xs md:text-sm text-violet-100">Taux de réussite</p>
+                <p className="text-xl md:text-2xl font-bold">{stats.reussite}%</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">Bulletins</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Élève</TableHead><TableHead>Classe</TableHead><TableHead>Trim.</TableHead>
-                <TableHead>Moyenne</TableHead><TableHead>Rang</TableHead><TableHead>Appréciation</TableHead><TableHead>Date</TableHead><TableHead>PDF</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {bulletins.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-gray-400 py-8">
-                  Aucun bulletin. Sélectionnez une classe et cliquez sur Générer.
-                </TableCell></TableRow>
-              ) : bulletins.map((b) => (
-                <TableRow key={b.id}>
-                  <TableCell className="font-medium">{b.eleve?.prenom} {b.eleve?.nom}</TableCell>
-                  <TableCell>{b.classe?.libelle}</TableCell>
-                  <TableCell><Badge variant="info">T{b.trimestre}</Badge></TableCell>
-                  <TableCell className="font-bold">{(b.moyenne_generale ?? 0).toFixed(1)}/20</TableCell>
-                  <TableCell>{b.rang ? `${b.rang}e` : "-"}</TableCell>
-                  <TableCell className="text-xs text-gray-500 max-w-xs truncate">{b.appreciation ?? "-"}</TableCell>
-                  <TableCell className="text-xs text-gray-400">
-                    {b.created_at ? format(new Date(b.created_at), "dd/MM/yyyy", { locale: fr }) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => downloadPdf(b)} title="Télécharger PDF">
-                      <Download className="h-4 w-4 text-blue-600" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Liste des bulletins</CardTitle></CardHeader>
+          <CardContent>
+            <DataTable
+              columns={columns}
+              data={bulletins}
+              loading={bulletinLoading}
+              searchPlaceholder="Rechercher un élève..."
+              emptyMessage={classeId ? "Aucun bulletin. Sélectionnez une classe et cliquez sur Générer." : "Sélectionnez une classe pour voir les bulletins"}
+              getRowKey={(b) => b.id}
+              pageSize={10}
+              mobileCard={(b) => (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{b.eleve_prenom} {b.eleve_nom}</p>
+                    <p className="text-xs text-muted-foreground">{b.classe_libelle} • T{b.trimestre}</p>
+                    <p className="text-xs text-muted-foreground">Moy: {(b.moyenne_generale ?? 0).toFixed(1)}/20 • Rang: {b.rang ? `${b.rang}e` : "-"}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => downloadPdf(b)}>
+                    <Download className="h-4 w-4 text-blue-600" />
+                  </Button>
+                </div>
+              )}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </PageTransition>
   )
 }

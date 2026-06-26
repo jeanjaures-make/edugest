@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +18,7 @@ interface Matiere { id: string; libelle: string; code: string; coefficient: numb
 
 export default function ClassesPage() {
   const { profile } = useUser()
+  const router = useRouter()
 
   const [niveaux, setNiveaux] = useState<Niveau[]>([])
   const [classes, setClasses] = useState<Classe[]>([])
@@ -31,27 +33,42 @@ export default function ClassesPage() {
   const [newAssign, setNewAssign] = useState({ enseignant_id: "", classe_id: "", matiere_id: "" })
   const [tab, setTab] = useState("niveaux")
 
-  async function reload() {
-    if (!profile?.ecole_id) return
-    const [n, c, m, p, a] = await Promise.all([
-      supabase.from("niveaux").select("*").eq("ecole_id", profile.ecole_id).order("ordre"),
-      supabase.from("classes").select("*, niveau:niveaux(libelle)").eq("ecole_id", profile.ecole_id).order("libelle"),
-      supabase.from("matieres").select("*").eq("ecole_id", profile.ecole_id).order("libelle"),
-      supabase.from("personnel").select("id, nom, prenom").eq("ecole_id", profile.ecole_id).eq("type", "enseignant").eq("statut", "actif").order("nom"),
-      supabase.from("enseignants_classes").select("id, enseignant:personnel(nom, prenom), classe:classes(libelle), matiere:matieres(libelle)").eq("...enseignant.ecole_id", profile.ecole_id),
-    ])
-    if (n.data) setNiveaux(n.data)
-    if (c.data) setClasses(c.data as unknown as Classe[])
-    if (m.data) setMatieres(m.data)
-    if (p.data) setPersonnel(p.data)
-    if (a.data) setAssignations(a.data as unknown as typeof assignations)
-  }
+  const reload = useCallback(async (ecoleId: string) => {
+    try {
+      const [n, c, m, p] = await Promise.all([
+        supabase.from("niveaux").select("*").eq("ecole_id", ecoleId).order("ordre"),
+        supabase.from("classes").select("*, niveau:niveaux(libelle)").eq("ecole_id", ecoleId).order("libelle"),
+        supabase.from("matieres").select("*").eq("ecole_id", ecoleId).order("libelle"),
+        supabase.from("personnel").select("id, nom, prenom").eq("ecole_id", ecoleId).eq("type", "enseignant").eq("statut", "actif").order("nom"),
+      ])
+      if (n.data) setNiveaux(n.data)
+      if (c.data) setClasses(c.data as unknown as Classe[])
+      if (m.data) setMatieres(m.data)
+      if (p.data) setPersonnel(p.data)
+    } catch (err) {
+      console.error("Erreur chargement données", err)
+    }
+    try {
+      const { data: a } = await supabase
+        .from("enseignants_classes")
+        .select("id, enseignant:personnel(nom, prenom), classe:classes(libelle), matiere:matieres(libelle)")
+      if (a) setAssignations(a as unknown as typeof assignations)
+    } catch (err) {
+      console.error("Erreur chargement assignations", err)
+    }
+  }, [])
 
-  const onReload = useEffectEvent(() => {
-    if (!profile?.ecole_id) { setLoading(false); return }
-    reload().finally(() => setLoading(false))
-  })
-  useEffect(() => { onReload() }, [])
+  useEffect(() => {
+    if (profile?.ecole_id) {
+      reload(profile.ecole_id).finally(() => setLoading(false))
+    } else if (profile === null) {
+      const timer = setTimeout(() => {
+        if (!loading) return
+        setLoading(false)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [profile?.ecole_id])
 
   async function addNiveau() {
     if (!profile?.ecole_id || !newNiveau.libelle || !newNiveau.code) return
@@ -60,12 +77,12 @@ export default function ClassesPage() {
       code: newNiveau.code, ordre: parseInt(newNiveau.ordre) || 0,
     })
     setNewNiveau({ libelle: "", code: "", ordre: "" })
-    reload()
+    reload(profile.ecole_id)
   }
 
   async function deleteNiveau(id: string) {
     await supabase.from("niveaux").delete().eq("id", id)
-    reload()
+    if (profile?.ecole_id) reload(profile.ecole_id)
   }
 
   async function addClasse() {
@@ -80,12 +97,12 @@ export default function ClassesPage() {
       frais_inscription: parseInt(newClasse.frais_inscription) || 0,
     })
     setNewClasse({ libelle: "", niveau_id: "", frais_scolarite: "", frais_inscription: "" })
-    reload()
+    reload(profile.ecole_id)
   }
 
   async function deleteClasse(id: string) {
     await supabase.from("classes").delete().eq("id", id)
-    reload()
+    if (profile?.ecole_id) reload(profile.ecole_id)
   }
 
   async function addMatiere() {
@@ -95,12 +112,12 @@ export default function ClassesPage() {
       code: newMatiere.code, coefficient: parseInt(newMatiere.coefficient) || 1,
     })
     setNewMatiere({ libelle: "", code: "", coefficient: "1" })
-    reload()
+    reload(profile.ecole_id)
   }
 
   async function deleteMatiere(id: string) {
     await supabase.from("matieres").delete().eq("id", id)
-    reload()
+    if (profile?.ecole_id) reload(profile.ecole_id)
   }
 
   async function addAssignation() {
@@ -114,12 +131,12 @@ export default function ClassesPage() {
       annee_scolaire_id: annee?.id ?? null,
     })
     setNewAssign({ enseignant_id: "", classe_id: "", matiere_id: "" })
-    reload()
+    reload(profile.ecole_id)
   }
 
   async function deleteAssignation(id: string) {
     await supabase.from("enseignants_classes").delete().eq("id", id)
-    reload()
+    if (profile?.ecole_id) reload(profile.ecole_id)
   }
 
   if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" /></div>

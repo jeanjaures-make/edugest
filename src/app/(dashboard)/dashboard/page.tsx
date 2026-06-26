@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Users, UserPlus, Coins, GraduationCap,
   AlertTriangle, TrendingUp, Calendar, Activity,
+  DollarSign, BookOpen, LayoutGrid, ClipboardList,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { PageTransition } from "@/components/animations/page-transition"
@@ -19,6 +20,7 @@ import { useUser } from "@/lib/hooks/use-user"
 import { formatMontant } from "@/lib/utils"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import Link from "next/link"
 
 const activityIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   "Nouvelle inscription": UserPlus,
@@ -50,11 +52,40 @@ export default function DashboardPage() {
   const [repartition, setRepartition] = useState<{ niveau: string; garcons: number; filles: number }[]>([])
   const [anneeCourante, setAnneeCourante] = useState("")
 
+  const [salaire, setSalaire] = useState(0)
+  const [matieres, setMatieres] = useState<string[]>([])
+  const [personnelPrenom, setPersonnelPrenom] = useState("")
+
   useEffect(() => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
 
     async function load() {
+      if (profile?.role === "enseignant") {
+        const { data: personnel } = await supabase
+          .from("personnel")
+          .select("salaire, prenom, nom")
+          .eq("user_id", profile.user_id)
+          .single()
+        if (personnel) {
+          setSalaire(personnel.salaire || 0)
+          setPersonnelPrenom(personnel.prenom || "")
+        }
+
+        const { data: emData } = await supabase
+          .from("enseignants_matieres")
+          .select("matiere:matieres(libelle)")
+          .eq("personnel_id", (
+            await supabase.from("personnel").select("id").eq("user_id", profile.user_id).single()
+          ).data?.id || "")
+        if (emData) {
+          setMatieres(emData.map((r: unknown) => (r as { matiere: { libelle: string } | null }).matiere?.libelle || "").filter(Boolean))
+        }
+
+        setLoading(false)
+        return
+      }
+
       const [
         { count: elevesCount },
         { data: inscriptionsData },
@@ -163,6 +194,98 @@ export default function DashboardPage() {
 
     load()
   }, [profile])
+
+  if (profile?.role === "enseignant") {
+    return (
+      <PageTransition>
+        <div className="space-y-6">
+          <FadeInView>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Bon retour, {personnelPrenom || "Enseignant"}</h1>
+                <p className="text-sm text-muted-foreground">Vue d&apos;ensemble de vos activités</p>
+              </div>
+              {anneeCourante && (
+                <Badge variant="gradient" size="lg" className="hidden sm:inline-flex">
+                  {anneeCourante}
+                </Badge>
+              )}
+            </div>
+          </FadeInView>
+
+          {loading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i}><CardContent className="p-6"><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-16" /></CardContent></Card>
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            >
+              <motion.div variants={statCardItem} custom={0}>
+                <StatCard label="Salaire" value={formatMontant(salaire)} icon={DollarSign} gradient="green" delay={0} />
+              </motion.div>
+              <motion.div variants={statCardItem} custom={1}>
+                <StatCard label="Matières enseignées" value={matieres.length} icon={BookOpen} gradient="blue" delay={0.1} />
+              </motion.div>
+              <motion.div variants={statCardItem} custom={2}>
+                <StatCard label="Emploi du temps" value="Voir" icon={LayoutGrid} gradient="orange" delay={0.2} />
+              </motion.div>
+            </motion.div>
+          )}
+
+          {matieres.length > 0 && (
+            <FadeInView delay={0.3}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Mes matières</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {matieres.map((m) => (
+                      <Badge key={m} variant="default">{m}</Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </FadeInView>
+          )}
+
+          <FadeInView delay={0.4}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Accès rapide</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Link href="/notes" className="flex items-center gap-3 rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors">
+                    <ClipboardList className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Notes</span>
+                  </Link>
+                  <Link href="/presences" className="flex items-center gap-3 rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors">
+                    <Users className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Présences</span>
+                  </Link>
+                  <Link href="/emploi-du-temps" className="flex items-center gap-3 rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Emploi du temps</span>
+                  </Link>
+                  <Link href="/bulletins" className="flex items-center gap-3 rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors">
+                    <GraduationCap className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Bulletins</span>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </FadeInView>
+        </div>
+      </PageTransition>
+    )
+  }
 
   return (
     <PageTransition>

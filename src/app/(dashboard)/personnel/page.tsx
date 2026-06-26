@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -39,7 +39,7 @@ export default function PersonnelPage() {
   const [editError, setEditError] = useState("")
   const [editForm, setEditForm] = useState({ nom: "", prenom: "", telephone: "", type: "", statut: "" })
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const { data } = await supabase
@@ -49,10 +49,9 @@ export default function PersonnelPage() {
       .order("nom", { ascending: true })
     if (data) setRows(data)
     setLoading(false)
-  }
+  }, [profile?.ecole_id])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   const actifs = rows.filter((r) => r.statut === "actif").length
   const enseignants = rows.filter((r) => r.type === "enseignant").length
@@ -307,23 +306,33 @@ function AjouterMembreDialog({ onCreated, ecoleId }: { onCreated: () => void; ec
   const [email, setEmail] = useState("")
   const [telephone, setTelephone] = useState("")
   const [type, setType] = useState("enseignant")
+  const [matieres, setMatieres] = useState<{ id: string; libelle: string }[]>([])
+  const [matiereId, setMatiereId] = useState("")
+
+  useEffect(() => {
+    if (!ecoleId || !open) return
+    supabase.from("matieres").select("id, libelle").eq("ecole_id", ecoleId).order("libelle").then(({ data }) => {
+      if (data) setMatieres(data)
+    })
+  }, [ecoleId, open])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nom || !prenom || !email || !ecoleId) return
+    if (type === "enseignant" && !matiereId) { setError("Veuillez sélectionner une matière"); return }
     setSaving(true)
     setError("")
     setSuccess("")
     const res = await fetch("/api/personnel/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nom, prenom, email, telephone, type }),
+      body: JSON.stringify({ nom, prenom, email, telephone, type, matiere_id: type === "enseignant" ? matiereId : undefined }),
     })
     const data = await res.json()
     setSaving(false)
     if (!res.ok) { setError(data.error || "Erreur"); return }
     setSuccess(`Compte créé ! Email: ${email} / Mot de passe provisoire: ${data.tempPassword}`)
-    setTimeout(() => { setOpen(false); setSuccess(""); setNom(""); setPrenom(""); setEmail(""); setTelephone(""); onCreated() }, 4000)
+    setTimeout(() => { setOpen(false); setSuccess(""); setNom(""); setPrenom(""); setEmail(""); setTelephone(""); setMatiereId(""); onCreated() }, 4000)
   }
 
   return (
@@ -359,11 +368,20 @@ function AjouterMembreDialog({ onCreated, ecoleId }: { onCreated: () => void; ec
           </div>
           <div className="space-y-2">
             <Label>Type</Label>
-            <select required className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" value={type} onChange={(e) => setType(e.target.value)}>
+            <select required className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" value={type} onChange={(e) => { setType(e.target.value); if (e.target.value !== "enseignant") setMatiereId("") }}>
               <option value="enseignant">Enseignant</option>
               <option value="administratif">Administratif</option>
             </select>
           </div>
+          {type === "enseignant" && (
+            <div className="space-y-2">
+              <Label>Matière enseignée</Label>
+              <select required className="flex h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm" value={matiereId} onChange={(e) => setMatiereId(e.target.value)}>
+                <option value="">Sélectionner une matière</option>
+                {matieres.map((m) => <option key={m.id} value={m.id}>{m.libelle}</option>)}
+              </select>
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={saving}>
             {saving ? "Création en cours..." : "Créer le compte"}
           </Button>

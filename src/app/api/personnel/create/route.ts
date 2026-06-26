@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { nom, prenom, email, telephone, type } = body
+  const { nom, prenom, email, telephone, type, matiere_id } = body
 
   if (!nom || !prenom || !email || !type) {
     return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 })
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
   const matricule = `PER-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`
 
-  const { data: personnel, error: personnelError } = await supabase
+  const { data: personnel, error: personnelError } = await svc
     .from("personnel")
     .insert({
       ecole_id: profil.ecole_id,
@@ -94,8 +94,19 @@ export async function POST(request: Request) {
     .single()
 
   if (personnelError) {
+    console.error("Personnel insert error:", personnelError)
     return NextResponse.json({ error: "Erreur lors de l'enregistrement du personnel" }, { status: 400 })
   }
 
-  return NextResponse.json({ personnel })
+  if (type === "enseignant" && matiere_id) {
+    const { error: matError } = await svc.from("enseignants_matieres").insert({
+      enseignant_id: personnel.id,
+      matiere_id,
+    })
+    if (matError) {
+      console.error("Enseignant matiere insert error:", matError)
+    }
+  }
+
+  return NextResponse.json({ personnel, tempPassword })
 }

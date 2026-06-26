@@ -31,7 +31,7 @@ export default function ElevesPage() {
   const { profile } = useUser()
   const [eleves, setEleves] = useState<EleveRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ total: 0, actifs: 0, garcons: 0, filles: 0 })
+  const [stats, setStats] = useState({ total: 0, actifs: 0, garcons: 0, filles: 0, inconnus: 0 })
 
   useEffect(() => {
     const ecoleId = profile?.ecole_id
@@ -53,11 +53,14 @@ export default function ElevesPage() {
           classe_libelle: e.classe?.libelle ?? null,
         }))
         setEleves(rows)
+        const garcons = rows.filter((r) => r.sexe === "M").length
+        const filles = rows.filter((r) => r.sexe === "F").length
         setStats({
           total: rows.length,
           actifs: rows.filter((r) => r.statut === "actif").length,
-          garcons: rows.filter((r) => r.sexe === "M").length,
-          filles: rows.filter((r) => r.sexe === "F").length,
+          garcons,
+          filles,
+          inconnus: rows.length - garcons - filles,
         })
       }
       setLoading(false)
@@ -96,14 +99,14 @@ export default function ElevesPage() {
       key: "classe",
       label: "Classe",
       sortable: true,
-      cell: (e) => e.classe_libelle ?? <span className="text-muted-foreground">—</span>,
+      cell: (e) => e.classe_libelle ?? <Badge variant="warning" size="sm">Non affecté</Badge>,
     },
     {
       key: "sexe",
       label: "Sexe",
       sortable: true,
       hideOnMobile: true,
-      cell: (e) => e.sexe === "M" ? "Masculin" : e.sexe === "F" ? "Féminin" : "—",
+      cell: (e) => e.sexe === "M" ? "Masculin" : e.sexe === "F" ? "Féminin" : <Badge variant="warning" size="sm">—</Badge>,
     },
     {
       key: "statut",
@@ -150,7 +153,7 @@ export default function ElevesPage() {
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
-            className="grid gap-4 grid-cols-2 md:grid-cols-4"
+            className="grid gap-4 grid-cols-2 md:grid-cols-5"
           >
             <motion.div variants={statCardItem} custom={0}>
               <Card className="overflow-hidden border-0">
@@ -184,6 +187,16 @@ export default function ElevesPage() {
                 </CardContent>
               </Card>
             </motion.div>
+            {stats.inconnus > 0 && (
+              <motion.div variants={statCardItem} custom={4}>
+                <Card className="overflow-hidden border-0">
+                  <CardContent className="p-4 md:p-6 bg-gradient-to-br from-gray-500 to-gray-600 text-white">
+                    <p className="text-xs md:text-sm text-gray-100">Non renseigné</p>
+                    <p className="text-xl md:text-2xl font-bold"><CountUp end={stats.inconnus} /></p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </motion.div>
         )}
 
@@ -215,8 +228,8 @@ export default function ElevesPage() {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{e.classe_libelle || "—"}</span>
-                    <span>{e.sexe === "M" ? "Masculin" : e.sexe === "F" ? "Féminin" : "—"}</span>
+                    {e.classe_libelle ?? <Badge variant="warning" size="sm">Non affecté</Badge>}
+                    {e.sexe === "M" ? "Masculin" : e.sexe === "F" ? "Féminin" : <Badge variant="warning" size="sm">—</Badge>}
                   </div>
                 </Link>
               )}
