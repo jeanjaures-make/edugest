@@ -99,7 +99,7 @@ export default function PaiementsPage() {
       const timer = setTimeout(() => { if (loading) setLoading(false) }, 3000)
       return () => clearTimeout(timer)
     }
-  }, [profile])
+  }, [profile, loading])
 
   function handleExport() {
     exportCSV("paiements",

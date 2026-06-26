@@ -52,7 +52,7 @@ export default function BulletinsPage() {
     const { data } = await query.order("libelle")
     if (data) setClasses(data)
     setLoading(false)
-  }, [profile?.ecole_id, profile?.role, profile?.id])
+  }, [profile])
 
   useEffect(() => { loadClasses() }, [loadClasses])
 
@@ -60,7 +60,7 @@ export default function BulletinsPage() {
     if (!profile?.ecole_id) return
     supabase.from("ecoles").select("nom, adresse, telephone, email, logo_url, code_etablissement")
       .eq("id", profile.ecole_id).single().then(({ data }) => { if (data) setEcole(data) })
-  }, [profile?.ecole_id])
+  }, [profile])
 
   const loadBulletins = useCallback(async () => {
     if (!profile?.ecole_id) return
@@ -90,7 +90,7 @@ export default function BulletinsPage() {
       })))
     }
     setBulletinLoading(false)
-  }, [profile?.ecole_id, classeId, trimestre])
+  }, [profile, classeId, trimestre])
 
   useEffect(() => { loadBulletins() }, [loadBulletins])
 
@@ -136,14 +136,9 @@ export default function BulletinsPage() {
     const rang = bulletin.rang || "-"
     const matricule = eleve?.matricule ?? ""
     const dateNaiss = eleve?.date_naissance ? format(new Date(eleve.date_naissance), "dd/MM/yyyy") : ""
-    const lieuNaiss = eleve?.lieu_naissance ?? ""
     const sexe = eleve?.sexe ?? ""
     const nationalite = eleve?.nationalite ?? "Ivoirienne"
     const ecoleNom = ecole?.nom || "Établissement scolaire"
-    const ecoleAdresse = ecole?.adresse || ""
-    const ecoleTel = ecole?.telephone || ""
-    const ecoleEmail = ecole?.email || ""
-    const ecoleCode = ecole?.code_etablissement || ""
     const ecoleLogo = ecole?.logo_url || ""
     const jours = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
     const mois = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
@@ -196,12 +191,7 @@ export default function BulletinsPage() {
     const classeEscaped = escapeHtml(classe)
     const matriculeEscaped = escapeHtml(matricule)
     const nationaliteEscaped = escapeHtml(nationalite)
-    const lieuNaissEscaped = escapeHtml(lieuNaiss)
     const ecoleNomEscaped = escapeHtml(ecoleNom)
-    const ecoleAdresseEscaped = escapeHtml(ecoleAdresse)
-    const ecoleTelEscaped = escapeHtml(ecoleTel)
-    const ecoleEmailEscaped = escapeHtml(ecoleEmail)
-    const ecoleCodeEscaped = escapeHtml(ecoleCode)
     const logoImg = ecoleLogo
       ? `<img src="${ecoleLogo}" alt="Logo" style="width:65px; height:65px; object-fit:contain;" />`
       : `<div style="width:65px; height:65px; border:1px solid #000; margin:auto; display:flex; align-items:center; justify-content:center; font-size:8px; color:#666;">LOGO</div>`
@@ -506,7 +496,7 @@ export default function BulletinsPage() {
                     {classes.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
                   </select>
                   {profile?.role === "enseignant" && classes.length === 0 && (
-                    <p className="text-xs text-amber-600 mt-1">Vous n'êtes professeur principal d'aucune classe</p>
+                    <p className="text-xs text-amber-600 mt-1">Vous n&apos;êtes professeur principal d&apos;aucune classe</p>
                   )}
                 </div>
               <Button onClick={generateBulletins} disabled={!classeId || generating}>

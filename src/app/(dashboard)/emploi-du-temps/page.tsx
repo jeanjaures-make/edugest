@@ -61,7 +61,7 @@ export default function EmploiDuTempsPage() {
       setEnseignantsMatieres(map)
     }
     setLoading(false)
-  }, [profile?.ecole_id])
+  }, [profile])
 
   useEffect(() => { loadInitial() }, [loadInitial])
 
@@ -126,7 +126,7 @@ export default function EmploiDuTempsPage() {
                   <Button disabled={!classeId}><Plus className="h-4 w-4 mr-2" />Ajouter un cours</Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Ajouter un cours</DialogTitle><DialogDescription>Planifier un nouveau cours dans l'emploi du temps</DialogDescription></DialogHeader>
+                  <DialogHeader><DialogTitle>Ajouter un cours</DialogTitle><DialogDescription>Planifier un nouveau cours dans l&apos;emploi du temps</DialogDescription></DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <Label>Matière</Label>
