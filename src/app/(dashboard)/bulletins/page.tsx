@@ -60,13 +60,14 @@ export default function BulletinsPage() {
   useEffect(() => { loadClasses() }, [loadClasses])
 
   useEffect(() => {
-    if (!profile?.ecole_id) return
+    const p = profile
+    if (!p?.ecole_id) return
     async function init() {
-      if (isParent && profile?.id) {
+      if (isParent && p?.id) {
         const { data } = await supabase
           .from("eleves")
           .select("id, nom, prenom")
-          .eq("parent_id", profile.id)
+          .eq("parent_id", p.id)
           .eq("statut", "actif")
         if (data) {
           setEnfants(data as { id: string; nom: string; prenom: string }[])
@@ -75,7 +76,7 @@ export default function BulletinsPage() {
       const { data: ecoleData } = await supabase
         .from("ecoles")
         .select("nom, adresse, telephone, email, logo_url, code_etablissement")
-        .eq("id", profile.ecole_id)
+        .eq("id", p!.ecole_id)
         .single()
       if (ecoleData) setEcole(ecoleData)
     }

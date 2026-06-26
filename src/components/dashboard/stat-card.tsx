@@ -12,7 +12,7 @@ interface StatCardProps {
   icon: LucideIcon
   trend?: { value: number; positive: boolean }
   className?: string
-  gradient?: "blue" | "green" | "orange" | "purple"
+  gradient?: "blue" | "green" | "orange" | "purple" | "red"
   delay?: number
 }
 
@@ -36,6 +36,11 @@ const gradients = {
     card: "bg-gradient-to-br from-violet-600 to-violet-700 text-white",
     icon: "bg-white/20 text-white",
     trend: "text-violet-100",
+  },
+  red: {
+    card: "bg-gradient-to-br from-red-600 to-red-700 text-white",
+    icon: "bg-white/20 text-white",
+    trend: "text-red-100",
   },
 }
 
