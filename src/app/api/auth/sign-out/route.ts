@@ -20,8 +20,6 @@ export async function POST() {
   )
 
   await supabase.auth.signOut()
-  const response = NextResponse.json({ success: true })
-  response.cookies.delete("sb-access-token")
-  response.cookies.delete("sb-refresh-token")
-  return response
+
+  return NextResponse.json({ success: true })
 }

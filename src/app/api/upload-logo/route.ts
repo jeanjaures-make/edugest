@@ -1,7 +1,30 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: "Non authentifié" }, { status: 401 })
+  }
+
   const formData = await request.formData()
   const file = formData.get("file") as File
   const schoolId = formData.get("school_id") as string | null
@@ -17,6 +40,22 @@ export async function POST(request: Request) {
   const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
   if (!allowed.includes(file.type)) {
     return NextResponse.json({ error: "Format non supporté (PNG, JPG, WEBP, SVG)" }, { status: 400 })
+  }
+
+  if (schoolId) {
+    const { data: profil } = await supabase
+      .from("profils")
+      .select("role, ecole_id")
+      .eq("user_id", user.id)
+      .single()
+
+    if (!profil || (profil.role !== "directeur" && profil.role !== "superadmin")) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
+    }
+
+    if (profil.role !== "superadmin" && profil.ecole_id !== schoolId) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
+    }
   }
 
   const svc = createClient(

@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import { checkRateLimit } from "@/lib/rate-limiter"
+import { headers } from "next/headers"
 
 export async function POST(request: Request) {
+  const headersList = await headers()
+  const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown"
+  const { allowed, retryAfter } = checkRateLimit(ip)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "TROP_DE_REQUETES", message: "Trop de tentatives. Réessayez dans quelques instants." },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
+  }
+
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,14 +38,8 @@ export async function POST(request: Request) {
   })
 
   if (error) {
-    const message =
-      error.code === "email_not_confirmed"
-        ? "Veuillez confirmer votre email avant de vous connecter"
-        : error.code === "user_not_found"
-          ? "Aucun compte trouvé avec cet email"
-          : "Email ou mot de passe incorrect"
-    return Response.json(
-      { error: error.code || "AUTH_FAILED", message },
+    return NextResponse.json(
+      { error: "AUTH_FAILED", message: "Email ou mot de passe incorrect" },
       { status: 401 }
     )
   }

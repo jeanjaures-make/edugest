@@ -1,7 +1,27 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { checkRateLimit } from "@/lib/rate-limiter"
+import { headers } from "next/headers"
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+function isValidPassword(password: string): boolean {
+  return password.length >= 6 && /[A-Z]/.test(password) && /[0-9]/.test(password)
+}
 
 export async function POST(request: Request) {
+  const headersList = await headers()
+  const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown"
+  const { allowed, retryAfter } = checkRateLimit(ip)
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "TROP_DE_REQUETES", message: "Trop de tentatives. Réessayez dans quelques instants." },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    )
+  }
+
   const formData = await request.formData()
 
   const school = {
@@ -19,6 +39,27 @@ export async function POST(request: Request) {
     email: formData.get("admin_email") as string,
     telephone: (formData.get("admin_telephone") as string) || "",
     password: formData.get("admin_password") as string,
+  }
+
+  if (!school.nom || !admin.nom || !admin.prenom || !admin.email || !admin.password) {
+    return NextResponse.json(
+      { error: "VALIDATION", message: "Tous les champs obligatoires doivent être remplis" },
+      { status: 400 }
+    )
+  }
+
+  if (!isValidEmail(admin.email)) {
+    return NextResponse.json(
+      { error: "VALIDATION", message: "Format d'email invalide" },
+      { status: 400 }
+    )
+  }
+
+  if (!isValidPassword(admin.password)) {
+    return NextResponse.json(
+      { error: "VALIDATION", message: "Mot de passe : min 6 caractères, 1 majuscule, 1 chiffre" },
+      { status: 400 }
+    )
   }
 
   const logoFile = formData.get("logo") as File | null

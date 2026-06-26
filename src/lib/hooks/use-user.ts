@@ -24,7 +24,7 @@ export function useUser() {
 
       const { data } = await supabase
         .from("profils")
-        .select("*")
+        .select("id, user_id, ecole_id, nom, prenom, telephone, role")
         .eq("user_id", user.id)
         .single()
 

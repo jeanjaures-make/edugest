@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Logo } from "@/components/shared/logo"
@@ -8,15 +8,27 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, ArrowLeft, ArrowRight, Check } from "lucide-react"
+import { Upload, ArrowLeft, ArrowRight, Check, Search, Building2 } from "lucide-react"
 
-type Step = "parent" | "enfant" | "documents" | "confirmation"
+type Step = "ecole" | "parent" | "enfant" | "documents" | "confirmation"
+
+interface EcoleResult {
+  id: string
+  nom: string
+  adresse: string | null
+}
 
 export default function InscriptionPage() {
   const router = useRouter()
-  const [step, setStep] = useState<Step>("parent")
+  const [step, setStep] = useState<Step>("ecole")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const [schoolQuery, setSchoolQuery] = useState("")
+  const [schoolResults, setSchoolResults] = useState<EcoleResult[]>([])
+  const [selectedSchool, setSelectedSchool] = useState<EcoleResult | null>(null)
+  const [searching, setSearching] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
 
   const [parent, setParent] = useState({
     nom: "", prenom: "", email: "", telephone: "",
@@ -27,14 +39,32 @@ export default function InscriptionPage() {
     sexe: "", nationalite: "Ivoirienne",
   })
 
-
   const steps = [
-    { key: "parent", label: "Parent", number: 1 },
-    { key: "enfant", label: "Enfant", number: 2 },
-    { key: "documents", label: "Documents", number: 3 },
-    { key: "confirmation", label: "Confirmation", number: 4 },
+    { key: "ecole", label: "École", number: 1 },
+    { key: "parent", label: "Parent", number: 2 },
+    { key: "enfant", label: "Enfant", number: 3 },
+    { key: "documents", label: "Documents", number: 4 },
+    { key: "confirmation", label: "Confirmation", number: 5 },
   ]
   const currentStepIndex = steps.findIndex((s) => s.key === step)
+
+  useEffect(() => {
+    if (schoolQuery.length < 2) { setSchoolResults([]); return }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(`/api/ecoles/recherche?q=${encodeURIComponent(schoolQuery)}`)
+        const data = await res.json()
+        setSchoolResults(data.ecoles || [])
+      } catch {
+        setSchoolResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [schoolQuery])
 
   function canProceedFromParent() {
     return parent.nom && parent.prenom && parent.email && parent.telephone && parent.password && parent.password === parent.confirmPassword
@@ -54,6 +84,7 @@ export default function InscriptionPage() {
         body: JSON.stringify({
           email: parent.email,
           password: parent.password,
+          school_id: selectedSchool?.id,
           parent: {
             nom: parent.nom,
             prenom: parent.prenom,
@@ -73,7 +104,7 @@ export default function InscriptionPage() {
         const data = await res.json()
         throw new Error(data.message || "Inscription échouée")
       }
-      router.push("/dashboard")
+      router.push("/connexion?inscrit=1")
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue")
@@ -106,12 +137,14 @@ export default function InscriptionPage() {
             ))}
           </div>
           <CardTitle className="text-xl">
+            {step === "ecole" && "Choisir un établissement"}
             {step === "parent" && "Informations du parent"}
             {step === "enfant" && "Informations de l'enfant"}
             {step === "documents" && "Documents requis"}
             {step === "confirmation" && "Vérification et confirmation"}
           </CardTitle>
           <CardDescription>
+            {step === "ecole" && "Recherchez l'école de votre enfant"}
             {step === "parent" && "Créez votre compte parent pour inscrire votre enfant"}
             {step === "enfant" && "Renseignez les informations de votre enfant"}
             {step === "documents" && "Téléchargez les pièces justificatives"}
@@ -121,6 +154,53 @@ export default function InscriptionPage() {
 
         <CardContent>
           {error && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
+
+          {step === "ecole" && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nom de l&apos;établissement</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={schoolQuery}
+                    onChange={(e) => { setSchoolQuery(e.target.value); setSelectedSchool(null) }}
+                    placeholder="Rechercher une école..."
+                    className="pl-9"
+                  />
+                </div>
+                {searching && <p className="text-xs text-gray-400">Recherche en cours...</p>}
+              </div>
+
+              {schoolResults.length > 0 && (
+                <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg divide-y">
+                  {schoolResults.map((ecole) => (
+                    <button
+                      key={ecole.id}
+                      type="button"
+                      onClick={() => { setSelectedSchool(ecole); setSchoolResults([]); setSchoolQuery(ecole.nom) }}
+                      className="flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors"
+                    >
+                      <Building2 className="h-4 w-4 text-gray-400 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">{ecole.nom}</p>
+                        {ecole.adresse && <p className="text-xs text-gray-400">{ecole.adresse}</p>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedSchool && (
+                <div className="rounded-lg bg-green-50 border border-green-200 p-3 flex items-center gap-3">
+                  <Check className="h-5 w-5 text-green-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-green-700">{selectedSchool.nom}</p>
+                    {selectedSchool.adresse && <p className="text-xs text-green-600">{selectedSchool.adresse}</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {step === "parent" && (
             <div className="space-y-4">
@@ -216,6 +296,12 @@ export default function InscriptionPage() {
 
           {step === "confirmation" && (
             <div className="space-y-4">
+              {selectedSchool && (
+                <div className="rounded-lg bg-gray-50 p-4">
+                  <h4 className="font-medium mb-2">Établissement</h4>
+                  <p className="text-sm text-gray-600">{selectedSchool.nom}</p>
+                </div>
+              )}
               <div className="rounded-lg bg-gray-50 p-4">
                 <h4 className="font-medium mb-2">Parent</h4>
                 <p className="text-sm text-gray-600">{parent.prenom} {parent.nom}</p>
@@ -247,7 +333,7 @@ export default function InscriptionPage() {
             {currentStepIndex < steps.length - 1 ? (
               <Button
                 onClick={() => setStep(steps[currentStepIndex + 1].key as Step)}
-                disabled={step === "parent" && !canProceedFromParent() || step === "enfant" && !canProceedFromEnfant()}
+                disabled={step === "ecole" && !selectedSchool || step === "parent" && !canProceedFromParent() || step === "enfant" && !canProceedFromEnfant()}
               >
                 Suivant <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
