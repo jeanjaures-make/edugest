@@ -34,6 +34,11 @@ interface BulletinRow {
 
 export default function BulletinsPage() {
   const { profile } = useUser()
+  const profileId = profile?.id ?? ""
+  const profileEcoleId = profile?.ecole_id ?? ""
+  const profileRole = profile?.role ?? ""
+  const isParent = profileRole === "parent"
+
   const [classes, setClasses] = useState<ClasseItem[]>([])
   const [enfants, setEnfants] = useState<{ id: string; nom: string; prenom: string }[]>([])
   const [bulletins, setBulletins] = useState<BulletinRow[]>([])
@@ -44,13 +49,15 @@ export default function BulletinsPage() {
   const [trimestre, setTrimestre] = useState("2")
   const [generating, setGenerating] = useState(false)
   const [ecole, setEcole] = useState<{ nom: string; adresse: string | null; telephone: string | null; email: string | null; logo_url: string | null; code_etablissement: string | null } | null>(null)
-  const isParent = profile?.role === "parent"
 
   const loadClasses = useCallback(async () => {
-    if (!profile?.ecole_id) { setLoading(false); return }
-    let query = supabase.from("classes").select("id, libelle").eq("ecole_id", profile.ecole_id)
-    if (profile.role === "enseignant") {
-      query = query.eq("professeur_principal_id", profile.id)
+    const ecoleId = profile?.ecole_id
+    const role = profile?.role
+    const id = profile?.id
+    if (!ecoleId) { setLoading(false); return }
+    let query = supabase.from("classes").select("id, libelle").eq("ecole_id", ecoleId)
+    if (role === "enseignant" && id) {
+      query = query.eq("professeur_principal_id", id)
     }
     const { data } = await query.order("libelle")
     if (data) setClasses(data)
@@ -60,13 +67,13 @@ export default function BulletinsPage() {
   useEffect(() => { loadClasses() }, [loadClasses])
 
   useEffect(() => {
-    if (!profile?.ecole_id || !profile?.id) return
-    const pid = profile.id
-    const eid = profile.ecole_id
-    const isPar = profile.role === "parent"
+    const pid = profile?.id
+    const eid = profile?.ecole_id
+    const role = profile?.role
+    if (!pid || !eid) return
 
-    ;(async () => {
-      if (isPar) {
+    async function loadChildren() {
+      if (role === "parent") {
         const { data } = await supabase
           .from("eleves")
           .select("id, nom, prenom")
@@ -76,22 +83,28 @@ export default function BulletinsPage() {
           setEnfants(data as { id: string; nom: string; prenom: string }[])
         }
       }
+    }
+
+    async function loadEcole() {
       const { data: ecoleData } = await supabase
         .from("ecoles")
         .select("nom, adresse, telephone, email, logo_url, code_etablissement")
         .eq("id", eid)
         .single()
       if (ecoleData) setEcole(ecoleData)
-    })()
-  }, [profile, isParent])
+    }
+
+    loadChildren(); loadEcole()
+  }, [profile])
 
   const loadBulletins = useCallback(async () => {
-    if (!profile?.ecole_id) return
+    const ecoleId = profile?.ecole_id
+    if (!ecoleId) return
     setBulletinLoading(true)
     let query = supabase
       .from("bulletins")
       .select("id, eleve_id, trimestre, moyenne_generale, rang, appreciation, created_at, eleve:eleves!inner(nom, prenom), classe:classes!inner(libelle)")
-      .eq("eleve.ecole_id", profile.ecole_id)
+      .eq("eleve.ecole_id", ecoleId)
 
     if (classeId) query = query.eq("classe_id", classeId)
     if (eleveId) query = query.eq("eleve_id", eleveId)
@@ -119,7 +132,8 @@ export default function BulletinsPage() {
   useEffect(() => { loadBulletins() }, [loadBulletins])
 
   async function generateBulletins() {
-    if (!profile?.ecole_id || !classeId) return
+    const ecoleId = profile?.ecole_id
+    if (!ecoleId || !classeId) return
     setGenerating(true)
     try {
       const res = await fetch("/api/bulletins/generate", {
@@ -536,10 +550,10 @@ export default function BulletinsPage() {
                 <div className="space-y-1">
                   <Label className="text-xs">Classe</Label>
                   <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm" value={classeId} onChange={(e) => setClasseId(e.target.value)}>
-                    <option value="">{profile?.role === "directeur" ? "Toutes les classes" : "Sélectionner une classe"}</option>
+                    <option value="">{profileRole === "directeur" ? "Toutes les classes" : "Sélectionner une classe"}</option>
                     {classes.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
                   </select>
-                  {profile?.role === "enseignant" && classes.length === 0 && (
+                  {profileRole === "enseignant" && classes.length === 0 && (
                     <p className="text-xs text-amber-600 mt-1">Vous n&apos;êtes professeur principal d&apos;aucune classe</p>
                   )}
                 </div>
