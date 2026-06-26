@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Users, UserPlus, Coins, GraduationCap,
   AlertTriangle, TrendingUp, Calendar, Activity,
   DollarSign, BookOpen, LayoutGrid, ClipboardList,
+  CreditCard, FileText, MapPin,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { PageTransition } from "@/components/animations/page-transition"
@@ -56,11 +58,49 @@ export default function DashboardPage() {
   const [matieres, setMatieres] = useState<string[]>([])
   const [personnelPrenom, setPersonnelPrenom] = useState("")
 
+  const [enfants, setEnfants] = useState<{
+    id: string; nom: string; prenom: string; matricule: string;
+    classe: { libelle: string } | null;
+    impayes: number; statutPaiement: string;
+  }[]>([])
+  const [totalImpayesEnfants, setTotalImpayesEnfants] = useState(0)
+
   useEffect(() => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
 
     async function load() {
+      if (profile?.role === "parent") {
+        const { data: mesEnfants } = await supabase
+          .from("eleves")
+          .select("id, nom, prenom, matricule, classe:classes(libelle)")
+          .eq("parent_id", profile.id)
+          .eq("statut", "actif")
+
+        let total = 0
+        const enfantsAvecImpayes = await Promise.all(
+          (mesEnfants || []).map(async (e) => {
+            const enf = e as unknown as { id: string; nom: string; prenom: string; matricule: string; classe: { libelle: string } | null }
+            const { data: ech } = await supabase
+              .from("echeanciers")
+              .select("montant_restant")
+              .eq("eleve_id", enf.id)
+            const impayes = (ech || []).reduce((s: number, r: { montant_restant: number }) => s + (r.montant_restant || 0), 0)
+            total += impayes
+            return {
+              ...enf,
+              impayes,
+              statutPaiement: impayes === 0 ? "ok" : "impaye",
+            }
+          })
+        )
+
+        setEnfants(enfantsAvecImpayes)
+        setTotalImpayesEnfants(total)
+        setLoading(false)
+        return
+      }
+
       if (profile?.role === "enseignant") {
         const { data: personnel } = await supabase
           .from("personnel")
@@ -194,6 +234,173 @@ export default function DashboardPage() {
 
     load()
   }, [profile])
+
+  if (profile?.role === "parent") {
+    return (
+      <PageTransition>
+        <div className="space-y-6">
+          <FadeInView>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Bonjour, {profile?.prenom || "Parent"}</h1>
+                <p className="text-sm text-muted-foreground">Espace parents — suivi de vos enfants</p>
+              </div>
+            </div>
+          </FadeInView>
+
+          {loading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {[...Array(2)].map((_, i) => (
+                <Card key={i}><CardContent className="p-6"><Skeleton className="h-4 w-24 mb-2" /><Skeleton className="h-8 w-16" /></CardContent></Card>
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+            >
+              <motion.div variants={statCardItem} custom={0}>
+                <StatCard label="Mes enfants" value={enfants.length} icon={Users} gradient="blue" delay={0} />
+              </motion.div>
+              <motion.div variants={statCardItem} custom={1}>
+                <StatCard
+                  label="Impayés"
+                  value={formatMontant(totalImpayesEnfants)}
+                  icon={Coins}
+                  gradient={totalImpayesEnfants > 0 ? "red" : "green"}
+                  delay={0.1}
+                />
+              </motion.div>
+              <motion.div variants={statCardItem} custom={2}>
+                <StatCard label="Paiements" value="Voir" icon={CreditCard} gradient="orange" delay={0.2} />
+              </motion.div>
+              <motion.div variants={statCardItem} custom={3}>
+                <StatCard label="Bulletins" value="Voir" icon={FileText} gradient="purple" delay={0.3} />
+              </motion.div>
+            </motion.div>
+          )}
+
+          {totalImpayesEnfants > 0 && (
+            <FadeInView delay={0.2}>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4"
+              >
+                <AlertTriangle className="h-6 w-6 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800">
+                    {formatMontant(totalImpayesEnfants)} d&apos;impayés
+                  </p>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    Relances nécessaires — veuillez régulariser la situation de vos enfants
+                  </p>
+                </div>
+              </motion.div>
+            </FadeInView>
+          )}
+
+          <FadeInView delay={0.3}>
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">Mes enfants</h2>
+              {enfants.length === 0 ? (
+                <Card>
+                  <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                    Aucun enfant inscrit
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {enfants.map((enfant) => (
+                    <motion.div
+                      key={enfant.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <Card className="h-full">
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h3 className="font-semibold text-foreground">
+                                {enfant.prenom} {enfant.nom}
+                              </h3>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {enfant.classe?.libelle || "Classe non définie"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {enfant.matricule}
+                              </p>
+                            </div>
+                            <Badge variant={enfant.impayes > 0 ? "danger" : "success"}>
+                              {enfant.impayes > 0 ? `${formatMontant(enfant.impayes)}` : "À jour"}
+                            </Badge>
+                          </div>
+
+                          {enfant.impayes > 0 && (
+                            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-md px-3 py-2 mb-3">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                              <span>Paiement en retard — {formatMontant(enfant.impayes)}</span>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 pt-2 border-t border-border">
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" asChild>
+                              <Link href={`/bulletins?eleve_id=${enfant.id}`}>
+                                <FileText className="h-3.5 w-3.5 mr-1" />
+                                Bulletin
+                              </Link>
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" asChild>
+                              <Link href={`/paiements?eleve_id=${enfant.id}`}>
+                                <CreditCard className="h-3.5 w-3.5 mr-1" />
+                                Paiements
+                              </Link>
+                            </Button>
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" asChild>
+                              <Link href={`/presences?eleve_id=${enfant.id}`}>
+                                <MapPin className="h-3.5 w-3.5 mr-1" />
+                                Présences
+                              </Link>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </FadeInView>
+
+          <FadeInView delay={0.4}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Accès rapide</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Link href="/bulletins" className="flex items-center gap-3 rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors">
+                    <GraduationCap className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Bulletins</span>
+                  </Link>
+                  <Link href="/paiements" className="flex items-center gap-3 rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Paiements</span>
+                  </Link>
+                  <Link href="/presences" className="flex items-center gap-3 rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors">
+                    <Users className="h-5 w-5 text-primary" />
+                    <span className="text-sm font-medium">Présences</span>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </FadeInView>
+        </div>
+      </PageTransition>
+    )
+  }
 
   if (profile?.role === "enseignant") {
     return (

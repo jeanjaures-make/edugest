@@ -35,13 +35,16 @@ interface BulletinRow {
 export default function BulletinsPage() {
   const { profile } = useUser()
   const [classes, setClasses] = useState<ClasseItem[]>([])
+  const [enfants, setEnfants] = useState<{ id: string; nom: string; prenom: string }[]>([])
   const [bulletins, setBulletins] = useState<BulletinRow[]>([])
   const [loading, setLoading] = useState(true)
   const [bulletinLoading, setBulletinLoading] = useState(false)
   const [classeId, setClasseId] = useState("")
+  const [eleveId, setEleveId] = useState("")
   const [trimestre, setTrimestre] = useState("2")
   const [generating, setGenerating] = useState(false)
   const [ecole, setEcole] = useState<{ nom: string; adresse: string | null; telephone: string | null; email: string | null; logo_url: string | null; code_etablissement: string | null } | null>(null)
+  const isParent = profile?.role === "parent"
 
   const loadClasses = useCallback(async () => {
     if (!profile?.ecole_id) { setLoading(false); return }
@@ -58,9 +61,26 @@ export default function BulletinsPage() {
 
   useEffect(() => {
     if (!profile?.ecole_id) return
-    supabase.from("ecoles").select("nom, adresse, telephone, email, logo_url, code_etablissement")
-      .eq("id", profile.ecole_id).single().then(({ data }) => { if (data) setEcole(data) })
-  }, [profile])
+    async function init() {
+      if (isParent && profile?.id) {
+        const { data } = await supabase
+          .from("eleves")
+          .select("id, nom, prenom")
+          .eq("parent_id", profile.id)
+          .eq("statut", "actif")
+        if (data) {
+          setEnfants(data as { id: string; nom: string; prenom: string }[])
+        }
+      }
+      const { data: ecoleData } = await supabase
+        .from("ecoles")
+        .select("nom, adresse, telephone, email, logo_url, code_etablissement")
+        .eq("id", profile.ecole_id)
+        .single()
+      if (ecoleData) setEcole(ecoleData)
+    }
+    init()
+  }, [profile, isParent])
 
   const loadBulletins = useCallback(async () => {
     if (!profile?.ecole_id) return
@@ -71,6 +91,7 @@ export default function BulletinsPage() {
       .eq("eleve.ecole_id", profile.ecole_id)
 
     if (classeId) query = query.eq("classe_id", classeId)
+    if (eleveId) query = query.eq("eleve_id", eleveId)
     if (trimestre) query = query.eq("trimestre", parseInt(trimestre))
 
     const { data } = await query.order("rang", { ascending: true })
@@ -90,7 +111,7 @@ export default function BulletinsPage() {
       })))
     }
     setBulletinLoading(false)
-  }, [profile, classeId, trimestre])
+  }, [profile, classeId, eleveId, trimestre])
 
   useEffect(() => { loadBulletins() }, [loadBulletins])
 
@@ -469,6 +490,14 @@ export default function BulletinsPage() {
     },
   ]
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      const eId = params.get("eleve_id")
+      if (eId) setEleveId(eId)
+    }
+  }, [])
+
   if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
 
   return (
@@ -478,7 +507,7 @@ export default function BulletinsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Bulletins</h1>
-              <p className="text-sm text-muted-foreground">Génération et consultation des bulletins de notes</p>
+              <p className="text-sm text-muted-foreground">{isParent ? "Consultez les bulletins de vos enfants" : "Génération et consultation des bulletins de notes"}</p>
             </div>
             <div className="flex flex-wrap gap-2 items-end">
               <div className="space-y-1">
@@ -489,6 +518,18 @@ export default function BulletinsPage() {
                   <option value="3">Trimestre 3</option>
                 </select>
               </div>
+              {isParent ? (
+                <div className="space-y-1">
+                  <Label className="text-xs">Enfant</Label>
+                  <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm" value={eleveId} onChange={(e) => setEleveId(e.target.value)}>
+                    <option value="">Sélectionner un enfant</option>
+                    {enfants.map((e) => <option key={e.id} value={e.id}>{e.prenom} {e.nom}</option>)}
+                  </select>
+                  {enfants.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">Aucun enfant inscrit</p>
+                  )}
+                </div>
+              ) : (
                 <div className="space-y-1">
                   <Label className="text-xs">Classe</Label>
                   <select className="h-10 rounded-lg border border-input bg-background px-3 text-sm" value={classeId} onChange={(e) => setClasseId(e.target.value)}>
@@ -499,10 +540,13 @@ export default function BulletinsPage() {
                     <p className="text-xs text-amber-600 mt-1">Vous n&apos;êtes professeur principal d&apos;aucune classe</p>
                   )}
                 </div>
-              <Button onClick={generateBulletins} disabled={!classeId || generating}>
-                {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                {generating ? "Génération..." : "Générer"}
-              </Button>
+              )}
+              {!isParent && (
+                <Button onClick={generateBulletins} disabled={!classeId || generating}>
+                  {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                  {generating ? "Génération..." : "Générer"}
+                </Button>
+              )}
             </div>
           </div>
         </FadeInView>
@@ -542,7 +586,7 @@ export default function BulletinsPage() {
               data={bulletins}
               loading={bulletinLoading}
               searchPlaceholder="Rechercher un élève..."
-              emptyMessage={classeId ? "Aucun bulletin. Sélectionnez une classe et cliquez sur Générer." : "Sélectionnez une classe pour voir les bulletins"}
+              emptyMessage={isParent ? "Aucun bulletin pour cet enfant" : classeId ? "Aucun bulletin. Sélectionnez une classe et cliquez sur Générer." : "Sélectionnez une classe pour voir les bulletins"}
               getRowKey={(b) => b.id}
               pageSize={10}
               mobileCard={(b) => (
