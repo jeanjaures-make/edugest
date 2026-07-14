@@ -23,10 +23,14 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { nom, prenom, date_naissance, lieu_naissance, sexe, nationalite, adresse, telephone, email, classe_id } = body
+  const { matricule, nom, prenom, date_naissance, lieu_naissance, sexe, nationalite, adresse, telephone, email, classe_id } = body
 
   if (!nom || !prenom) {
     return NextResponse.json({ error: "Nom et prénom sont requis" }, { status: 400 })
+  }
+
+  if (!matricule) {
+    return NextResponse.json({ error: "Le matricule est requis" }, { status: 400 })
   }
 
   const { data: profil } = await supabase
@@ -39,7 +43,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Profil école introuvable" }, { status: 400 })
   }
 
-  const matricule = `EL-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`
+  // matricule is provided manually (national ID)
 
   const { data: eleve, error } = await supabase
     .from("eleves")

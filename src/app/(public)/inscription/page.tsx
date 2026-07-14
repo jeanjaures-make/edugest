@@ -35,7 +35,7 @@ export default function InscriptionPage() {
     password: "", confirmPassword: "",
   })
   const [enfant, setEnfant] = useState({
-    nom: "", prenom: "", date_naissance: "", lieu_naissance: "",
+    matricule: "", nom: "", prenom: "", date_naissance: "", lieu_naissance: "",
     sexe: "", nationalite: "Ivoirienne",
   })
 
@@ -71,7 +71,7 @@ export default function InscriptionPage() {
   }
 
   function canProceedFromEnfant() {
-    return enfant.nom && enfant.prenom && enfant.date_naissance && enfant.sexe
+    return enfant.matricule && enfant.nom && enfant.prenom && enfant.date_naissance && enfant.sexe
   }
 
   async function handleSubmit() {

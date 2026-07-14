@@ -80,7 +80,7 @@ export default function EmploiDuTempsPage() {
 
   async function addCours() {
     if (!classeId || !newCours.matiere_id) return
-    await supabase.from("emplois_du_temps").insert({
+    const { error } = await supabase.from("emplois_du_temps").insert({
       classe_id: classeId,
       matiere_id: newCours.matiere_id,
       enseignant_id: newCours.enseignant_id || null,
@@ -89,12 +89,20 @@ export default function EmploiDuTempsPage() {
       heure_fin: newCours.heure_fin,
       salle: newCours.salle || null,
     })
+    if (error) {
+      alert("Erreur lors de l'ajout du cours: " + error.message)
+      return
+    }
     setNewCours({ matiere_id: "", enseignant_id: "", jour: "1", heure_debut: "08:00", heure_fin: "09:00", salle: "" })
     loadCours()
   }
 
   async function deleteCours(id: string) {
-    await supabase.from("emplois_du_temps").delete().eq("id", id)
+    const { error } = await supabase.from("emplois_du_temps").delete().eq("id", id)
+    if (error) {
+      alert("Erreur lors de la suppression: " + error.message)
+      return
+    }
     loadCours()
   }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import {
-  LayoutDashboard, Users, UserPlus, BookOpen, ClipboardList,
+  LayoutDashboard, Users, UserPlus, BookOpen, ClipboardList, AlertTriangle,
   Coins, CreditCard, CalendarCheck, Clock, UtensilsCrossed,
   Bus, Library, MessageSquare, Calendar, FileText, Settings,
   type LucideIcon,
@@ -21,8 +21,10 @@ export const navLinks: NavLink[] = [
   { label: "Inscriptions", href: "/inscriptions", icon: UserPlus, roles: ["directeur", "comptable"] },
   { label: "Personnel", href: "/personnel", icon: Users, roles: ["directeur"] },
   { label: "Notes", href: "/notes", icon: BookOpen, roles: ["directeur", "enseignant"] },
+  { label: "Cahier de textes", href: "/cahier-textes", icon: BookOpen, roles: ["directeur", "enseignant"] },
   { label: "Bulletins", href: "/bulletins", icon: ClipboardList, roles: ["directeur", "enseignant", "parent", "eleve"] },
   { label: "Frais scolaires", href: "/frais", icon: Coins, roles: ["directeur", "comptable"] },
+  { label: "Impayés", href: "/frais/impayes", icon: AlertTriangle, roles: ["directeur", "comptable"] },
   { label: "Paiements", href: "/paiements", icon: CreditCard, roles: ["directeur", "comptable", "parent"] },
   { label: "Présences", href: "/presences", icon: CalendarCheck, roles: ["directeur", "enseignant", "parent"] },
   { label: "Emploi du temps", href: "/emploi-du-temps", icon: Clock, roles: ["directeur", "enseignant", "eleve"] },

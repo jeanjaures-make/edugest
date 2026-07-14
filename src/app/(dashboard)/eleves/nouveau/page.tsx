@@ -178,6 +178,7 @@ export default function NouvelElevePage() {
   const [successDialog, setSuccessDialog] = useState<{ eleveId: string; inscriptionId: string | null } | null>(null)
 
   const [form, setForm] = useState({
+    matricule: "",
     nom: "",
     prenom: "",
     date_naissance: "",
@@ -420,6 +421,11 @@ export default function NouvelElevePage() {
         <Card>
           <CardHeader><CardTitle className="text-lg">Identité</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="matricule">Matricule national *</Label>
+              <Input id="matricule" required value={form.matricule} onChange={(e) => update("matricule", e.target.value)} placeholder="Ex: CI001234567" />
+              <p className="text-xs text-gray-400">Matricule officiel de l'&apos;élève (CNI, passeport ou numéro national).</p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="nom">Nom *</Label>
               <Input id="nom" required value={form.nom} onChange={(e) => update("nom", e.target.value)} />

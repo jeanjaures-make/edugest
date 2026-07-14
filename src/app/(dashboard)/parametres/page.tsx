@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Building, Users, Bell, Shield, Palette, BookOpen, Calendar } from "lucide-react"
 import Link from "next/link"
+import { PushNotificationToggle } from "@/components/pwa/push-toggle"
 
 export default function ParametresPage() {
   return (
@@ -70,13 +71,14 @@ export default function ParametresPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-6 flex flex-col items-center text-center gap-3">
             <Bell className="h-8 w-8 text-orange-600" />
             <div>
               <p className="font-medium">Notifications</p>
-              <p className="text-xs text-gray-500">SMS, email, WhatsApp</p>
+              <p className="text-xs text-gray-500">SMS, email, push</p>
             </div>
+            <PushNotificationToggle />
           </CardContent>
         </Card>
         <Card className="cursor-pointer hover:shadow-md transition-shadow">

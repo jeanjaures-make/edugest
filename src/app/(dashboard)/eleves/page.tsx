@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { PageTransition } from "@/components/animations/page-transition"
 import { FadeInView } from "@/components/animations/fade-in-view"
-import { Plus, Download } from "lucide-react"
+import { Plus, Download, Upload } from "lucide-react"
 import { CountUp } from "@/components/animations/count-up"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
@@ -133,6 +133,11 @@ export default function ElevesPage() {
               <Button variant="outline" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />Exporter
               </Button>
+              <Link href="/eleves/import">
+                <Button variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />Importer
+                </Button>
+              </Link>
               <Link href="/eleves/nouveau">
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />Nouvel élève

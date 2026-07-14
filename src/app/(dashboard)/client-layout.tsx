@@ -39,6 +39,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return
       }
 
+      if (role === "parent") {
+        router.push("/parent")
+        return
+      }
+
       setUser({
         nom: profil?.nom ?? authUser.email?.split("@")[0] ?? "Utilisateur",
         prenom: profil?.prenom ?? "",

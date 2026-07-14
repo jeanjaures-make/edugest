@@ -24,6 +24,7 @@ interface BulletinRow {
   eleve_id: string
   eleve_nom: string
   eleve_prenom: string
+  classe_id: string
   classe_libelle: string | null
   trimestre: number
   moyenne_generale: number | null
@@ -48,6 +49,7 @@ export default function BulletinsPage() {
   const [eleveId, setEleveId] = useState("")
   const [trimestre, setTrimestre] = useState("2")
   const [generating, setGenerating] = useState(false)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const [ecole, setEcole] = useState<{ nom: string; adresse: string | null; telephone: string | null; email: string | null; logo_url: string | null; code_etablissement: string | null } | null>(null)
 
   const loadClasses = useCallback(async () => {
@@ -103,7 +105,7 @@ export default function BulletinsPage() {
     setBulletinLoading(true)
     let query = supabase
       .from("bulletins")
-      .select("id, eleve_id, trimestre, moyenne_generale, rang, appreciation, created_at, eleve:eleves!inner(nom, prenom), classe:classes!inner(libelle)")
+      .select("id, eleve_id, classe_id, trimestre, moyenne_generale, rang, appreciation, created_at, eleve:eleves!inner(nom, prenom), classe:classes!inner(libelle)")
       .eq("eleve.ecole_id", ecoleId)
 
     if (classeId) query = query.eq("classe_id", classeId)
@@ -113,11 +115,12 @@ export default function BulletinsPage() {
     const { data } = await query.order("rang", { ascending: true })
 
     if (data) {
-      setBulletins((data as unknown as { id: string; eleve_id: string; trimestre: number; moyenne_generale: number | null; rang: number | null; appreciation: string | null; created_at: string; eleve: { nom: string; prenom: string } | null; classe: { libelle: string } | null }[]).map((b) => ({
+      setBulletins((data as unknown as { id: string; eleve_id: string; classe_id: string; trimestre: number; moyenne_generale: number | null; rang: number | null; appreciation: string | null; created_at: string; eleve: { nom: string; prenom: string } | null; classe: { libelle: string } | null }[]).map((b) => ({
         id: b.id,
         eleve_id: b.eleve_id,
         eleve_nom: b.eleve?.nom ?? "",
         eleve_prenom: b.eleve?.prenom ?? "",
+        classe_id: b.classe_id,
         classe_libelle: b.classe?.libelle ?? null,
         trimestre: b.trimestre,
         moyenne_generale: b.moyenne_generale,
@@ -147,7 +150,88 @@ export default function BulletinsPage() {
     }
   }
 
-  async function downloadPdf(bulletin: BulletinRow) {
+  type ClassStats = {
+    moyClasse: number | null
+    maxClasse: number | null
+    minClasse: number | null
+    subjectAvg: Map<string, number>
+    effectif: number
+  }
+
+  const classStatsCache = new Map<string, ClassStats>()
+
+  async function fetchClassStats(classeIdParam: string, trim: number): Promise<ClassStats> {
+    const cacheKey = `${classeIdParam}-${trim}`
+    const cached = classStatsCache.get(cacheKey)
+    if (cached) return cached
+
+    const [{ data: buls }, { count: effectif }, { data: notesAll }] = await Promise.all([
+      supabase
+        .from("bulletins")
+        .select("moyenne_generale")
+        .eq("classe_id", classeIdParam)
+        .eq("trimestre", trim),
+      supabase
+        .from("eleves")
+        .select("id", { count: "exact", head: true })
+        .eq("classe_id", classeIdParam)
+        .eq("statut", "actif"),
+      supabase
+        .from("notes")
+        .select("eleve_id, valeur, evaluation:evaluations!inner(coefficient, classe_id, trimestre, matiere:matieres(libelle))")
+        .eq("evaluation.classe_id", classeIdParam)
+        .eq("evaluation.trimestre", trim),
+    ])
+
+    const moyennes = ((buls || []) as { moyenne_generale: number | null }[])
+      .map((b) => b.moyenne_generale)
+      .filter((v): v is number => v != null)
+    const moyClasse = moyennes.length ? moyennes.reduce((a, b) => a + b, 0) / moyennes.length : null
+    const maxClasse = moyennes.length ? Math.max(...moyennes) : null
+    const minClasse = moyennes.length ? Math.min(...moyennes) : null
+
+    type ClassNoteRow = { eleve_id: string; valeur: number | null; evaluation: { coefficient: number; matiere: { libelle: string } | null } | null }
+    const perSubjectStudent = new Map<string, Map<string, { total: number; coeff: number }>>()
+    for (const n of (notesAll || []) as unknown as ClassNoteRow[]) {
+      const matiere = n.evaluation?.matiere?.libelle || "Inconnue"
+      if (!perSubjectStudent.has(matiere)) perSubjectStudent.set(matiere, new Map())
+      const byStudent = perSubjectStudent.get(matiere)!
+      if (!byStudent.has(n.eleve_id)) byStudent.set(n.eleve_id, { total: 0, coeff: 0 })
+      const entry = byStudent.get(n.eleve_id)!
+      const c = n.evaluation?.coefficient || 1
+      entry.total += (n.valeur ?? 0) * c
+      entry.coeff += c
+    }
+
+    const subjectAvg = new Map<string, number>()
+    for (const [matiere, byStudent] of perSubjectStudent) {
+      const studentAverages = [...byStudent.values()]
+        .filter((s) => s.coeff > 0)
+        .map((s) => s.total / s.coeff)
+      if (studentAverages.length) {
+        subjectAvg.set(matiere, studentAverages.reduce((a, b) => a + b, 0) / studentAverages.length)
+      }
+    }
+
+    const result: ClassStats = { moyClasse, maxClasse, minClasse, subjectAvg, effectif: effectif ?? 0 }
+    classStatsCache.set(cacheKey, result)
+    return result
+  }
+
+  async function fetchAbsences(eleveId: string) {
+    const { data } = await supabase
+      .from("presences")
+      .select("statut, motif")
+      .eq("eleve_id", eleveId)
+    const rows = (data || []) as { statut: string; motif: string | null }[]
+    return {
+      justifiees: rows.filter((r) => r.statut === "absent" && r.motif).length,
+      nonJustifiees: rows.filter((r) => r.statut === "absent" && !r.motif).length,
+      retards: rows.filter((r) => r.statut === "retard").length,
+    }
+  }
+
+  async function buildBulletinHtml(bulletin: BulletinRow, stats: ClassStats): Promise<string> {
     const { data: eleve } = await supabase
       .from("eleves")
       .select("nom, prenom, matricule, date_naissance, lieu_naissance, sexe, nationalite")
@@ -156,16 +240,13 @@ export default function BulletinsPage() {
 
     const { data: notesData } = await supabase
       .from("notes")
-      .select("valeur, appreciation, evaluation:evaluations!inner(libelle, coefficient, enseignant:personnel(nom, prenom), matiere:matieres(libelle, coefficient))")
+      .select("valeur, appreciation, evaluation:evaluations!inner(libelle, coefficient, trimestre, classe_id, enseignant:personnel(nom, prenom), matiere:matieres(libelle, coefficient))")
       .eq("eleve_id", bulletin.eleve_id)
       .eq("evaluation.trimestre", bulletin.trimestre)
-      .eq("evaluation.classe_id", classeId)
+      .eq("evaluation.classe_id", bulletin.classe_id)
 
-    const { count: effectif } = await supabase
-      .from("eleves")
-      .select("id", { count: "exact", head: true })
-      .eq("classe_id", classeId)
-      .eq("statut", "actif")
+    const absences = await fetchAbsences(bulletin.eleve_id)
+    const effectif = stats.effectif
 
     const nom = `${bulletin.eleve_prenom} ${bulletin.eleve_nom}`.toUpperCase()
     const classe = bulletin.classe_libelle || ""
@@ -188,7 +269,9 @@ export default function BulletinsPage() {
     }
 
     type NoteRow = { valeur: number | null; appreciation: string | null; evaluation: { libelle: string; coefficient: number; enseignant: { nom: string; prenom: string } | null; matiere: { libelle: string; coefficient: number } | null } | null }
-    type SubjectRow = { matiere: string; moy: string; coeff: number; mCoef: string; prof: string; appr: string }
+    type SubjectRow = { matiere: string; moy: string; moyClasse: string; coeff: number; mCoef: string; prof: string; appr: string }
+
+    const fmtStat = (v: number | null) => (v == null ? "-" : v.toFixed(2).replace(".", ","))
 
     const subjectMap = new Map<string, { total: number; coeffSum: number; matCoeff: number; enseignant: string; appreciations: string[] }>()
     for (const n of (notesData || []) as unknown as NoteRow[]) {
@@ -215,9 +298,11 @@ export default function BulletinsPage() {
     const lignesNotes: SubjectRow[] = []
     for (const [matiere, s] of subjectMap) {
       const moy = s.coeffSum > 0 ? (s.total / s.coeffSum) : 0
+      const clsAvg = stats.subjectAvg.get(matiere)
       lignesNotes.push({
         matiere: escapeHtml(matiere),
         moy: moy.toFixed(2).replace(".", ","),
+        moyClasse: clsAvg != null ? clsAvg.toFixed(2).replace(".", ",") : "-",
         coeff: s.matCoeff,
         mCoef: (moy * s.matCoeff).toFixed(2).replace(".", ","),
         prof: escapeHtml(s.enseignant),
@@ -326,7 +411,7 @@ export default function BulletinsPage() {
         <td class="c">${l.coeff}</td>
         <td class="c">${l.coeff}</td>
         <td class="c b">${l.moy}</td>
-        <td class="c">-</td>
+        <td class="c">${l.moyClasse}</td>
         <td class="fs-10">${l.appr}</td>
         <td class="fs-10">${l.prof}</td>
       </tr>`).join("") : `<tr><td colspan="8" class="c" style="padding:12px;">Aucune note saisie pour ce trimestre</td></tr>`}
@@ -345,17 +430,17 @@ export default function BulletinsPage() {
       </tr>
       <tr class="b">
         <td colspan="3" class="l">Moyenne générale de la classe :</td>
-        <td colspan="2" class="c">- / 20</td>
+        <td colspan="2" class="c">${fmtStat(stats.moyClasse)} / 20</td>
         <td colspan="3"></td>
       </tr>
       <tr class="b">
         <td colspan="3" class="l">Plus haute moyenne de la classe :</td>
-        <td colspan="2" class="c">- / 20</td>
+        <td colspan="2" class="c">${fmtStat(stats.maxClasse)} / 20</td>
         <td colspan="3"></td>
       </tr>
       <tr class="b">
         <td colspan="3" class="l">Plus basse moyenne de la classe :</td>
-        <td colspan="2" class="c">- / 20</td>
+        <td colspan="2" class="c">${fmtStat(stats.minClasse)} / 20</td>
         <td colspan="3"></td>
       </tr>
       <tr class="b">
@@ -389,28 +474,23 @@ export default function BulletinsPage() {
       </td>
       <td style="width:45%; padding:6px 5px; font-size:12px; vertical-align:middle;">
         <b>Absences :</b><br>
-        Justifiées : <span class="checkbox"></span> 0 &nbsp;&nbsp;
-        Non justifiées : <span class="checkbox"></span> 0 &nbsp;&nbsp;
-        Retards : <span class="checkbox"></span> 0
+        Justifiées : <b>${absences.justifiees}</b> &nbsp;&nbsp;
+        Non justifiées : <b>${absences.nonJustifiees}</b> &nbsp;&nbsp;
+        Retards : <b>${absences.retards}</b>
       </td>
     </tr>
   </table>
 
-  <!-- ===== SIGNATURES 3 COLONNES ===== -->
+  <!-- ===== SIGNATURES 2 COLONNES ===== -->
   <table style="margin-top:8px;">
     <tr>
-      <td style="width:33%; text-align:center; vertical-align:top; border:none;">
+      <td style="width:50%; text-align:center; vertical-align:top; border:none;">
         <div><b>Le Professeur Principal</b></div>
         <div style="height:22px;"></div>
         <div class="sign-line"></div>
         <div class="fs-9" style="margin-top:2px;">Date : ....../....../${new Date().getFullYear()}</div>
       </td>
-      <td style="width:34%; text-align:center; vertical-align:top; border:none;">
-        <div><b>Le Délégué de classe</b></div>
-        <div style="height:22px;"></div>
-        <div class="sign-line"></div>
-      </td>
-      <td style="width:33%; text-align:center; vertical-align:top; border:none;">
+      <td style="width:50%; text-align:center; vertical-align:top; border:none;">
         <div><b>Le Chef d'Établissement</b></div>
         <div style="height:6px;"></div>
         <div style="width:45px; height:45px; border:2px solid #000; border-radius:50%; margin:2px auto; display:flex; align-items:center; justify-content:center; font-size:6px; color:#666;">CACHET</div>
@@ -431,6 +511,10 @@ export default function BulletinsPage() {
 </div>
 </body></html>`
 
+    return html
+  }
+
+  async function renderHtmlToCanvas(html: string): Promise<HTMLCanvasElement> {
     const container = document.createElement("div")
     container.style.position = "absolute"
     container.style.left = "-9999px"
@@ -439,22 +523,50 @@ export default function BulletinsPage() {
     container.style.background = "#fff"
     container.innerHTML = html
     document.body.appendChild(container)
-
     try {
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: 794,
-      })
-      const imgData = canvas.toDataURL("image/jpeg", 0.95)
-      const doc = new jsPDF({ format: "a4", orientation: "portrait", unit: "px" })
-      const pageW = doc.internal.pageSize.getWidth()
-      const imgH = (canvas.height * pageW) / canvas.width
-      doc.addImage(imgData, "JPEG", 0, 0, pageW, imgH)
-      doc.save(`bulletin-${bulletin.eleve_prenom}-${bulletin.eleve_nom}-T${bulletin.trimestre}.pdf`)
+      return await html2canvas(container, { scale: 2, useCORS: true, logging: false, width: 794 })
     } finally {
       document.body.removeChild(container)
+    }
+  }
+
+  function addCanvasPage(doc: jsPDF, canvas: HTMLCanvasElement, isFirst: boolean) {
+    const imgData = canvas.toDataURL("image/jpeg", 0.95)
+    const pageW = doc.internal.pageSize.getWidth()
+    const imgH = (canvas.height * pageW) / canvas.width
+    if (!isFirst) doc.addPage()
+    doc.addImage(imgData, "JPEG", 0, 0, pageW, imgH)
+  }
+
+  async function downloadPdf(bulletin: BulletinRow) {
+    if (!bulletin.classe_id) return
+    const stats = await fetchClassStats(bulletin.classe_id, bulletin.trimestre)
+    const html = await buildBulletinHtml(bulletin, stats)
+    const canvas = await renderHtmlToCanvas(html)
+    const doc = new jsPDF({ format: "a4", orientation: "portrait", unit: "px" })
+    addCanvasPage(doc, canvas, true)
+    doc.save(`bulletin-${bulletin.eleve_prenom}-${bulletin.eleve_nom}-T${bulletin.trimestre}.pdf`)
+  }
+
+  async function downloadAllPdf() {
+    if (bulletins.length === 0) return
+    setDownloadingAll(true)
+    try {
+      const doc = new jsPDF({ format: "a4", orientation: "portrait", unit: "px" })
+      for (let i = 0; i < bulletins.length; i++) {
+        const b = bulletins[i]
+        if (!b.classe_id) continue
+        const stats = await fetchClassStats(b.classe_id, b.trimestre)
+        const html = await buildBulletinHtml(b, stats)
+        const canvas = await renderHtmlToCanvas(html)
+        addCanvasPage(doc, canvas, i === 0)
+      }
+      const suffix = classeId
+        ? (classes.find((c) => c.id === classeId)?.libelle ?? "classe")
+        : "tous"
+      doc.save(`bulletins-${suffix}-T${trimestre}.pdf`)
+    } finally {
+      setDownloadingAll(false)
     }
   }
 
@@ -562,6 +674,12 @@ export default function BulletinsPage() {
                 <Button onClick={generateBulletins} disabled={!classeId || generating}>
                   {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
                   {generating ? "Génération..." : "Générer"}
+                </Button>
+              )}
+              {bulletins.length > 0 && (
+                <Button variant="outline" onClick={downloadAllPdf} disabled={downloadingAll}>
+                  {downloadingAll ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  {downloadingAll ? "Export..." : "Tout télécharger"}
                 </Button>
               )}
             </div>

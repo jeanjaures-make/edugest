@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { StatCard } from "@/components/dashboard/stat-card"
+import { DashboardCharts } from "@/components/dashboard/charts"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Users, UserPlus, Coins, GraduationCap,
@@ -52,6 +53,12 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState<{ month: string; inscriptions: number }[]>([])
   const [activites, setActivites] = useState<{ action: string; detail: string; time: string }[]>([])
   const [repartition, setRepartition] = useState<{ niveau: string; garcons: number; filles: number }[]>([])
+  const [chartsData, setChartsData] = useState<{
+    paiementsParMois: { mois: string; montant: number }[]
+    presencesBreakdown: { name: string; value: number; color: string }[]
+    paiementsStatut: { name: string; value: number; color: string }[]
+    topClasses: { classe: string; moyenne: number }[]
+  } | null>(null)
   const [anneeCourante, setAnneeCourante] = useState("")
 
   const [salaire, setSalaire] = useState(0)
@@ -228,6 +235,76 @@ export default function DashboardPage() {
           }
         }
       }
+
+      // Load charts data
+      const moisLabels = ["Sep", "Oct", "Nov", "Déc", "Jan", "Fév", "Mar", "Avr", "Mai", "Jun"]
+      const paiementsParMois = moisLabels.map((m) => ({
+        mois: m,
+        montant: 0,
+      }))
+      if (paiementsRecents) {
+        (paiementsRecents as unknown as { montant: number; created_at: string }[]).forEach((p) => {
+          const d = new Date(p.created_at)
+          const monthIdx = d.getMonth() - 8
+          const idx = monthIdx < 0 ? monthIdx + 12 : monthIdx
+          if (idx >= 0 && idx < 10) {
+            paiementsParMois[idx].montant += p.montant || 0
+          }
+        })
+      }
+
+      // Presences breakdown
+      let presentCount = 0, absentCount = 0, retardCount = 0
+      if (presencesData) {
+        (presencesData as unknown as { statut: string }[]).forEach((p) => {
+          if (p.statut === "present") presentCount++
+          else if (p.statut === "absent") absentCount++
+          else if (p.statut === "retard") retardCount++
+        })
+      }
+      const presencesBreakdown = [
+        { name: "Présents", value: presentCount, color: "#22c55e" },
+        { name: "Absents", value: absentCount, color: "#ef4444" },
+        { name: "Retards", value: retardCount, color: "#f97316" },
+      ]
+
+      // Paiements statut
+      const { count: payeCount } = await supabase
+        .from("paiements")
+        .select("id", { count: "exact", head: true })
+        .eq("eleve_id", (await supabase.from("eleves").select("id").eq("ecole_id", ecoleId).eq("statut", "actif")).data?.map(e => e.id) || [])
+        .eq("statut", "paye")
+      const { count: attenteCount } = await supabase
+        .from("paiements")
+        .select("id", { count: "exact", head: true })
+        .eq("eleve_id", (await supabase.from("eleves").select("id").eq("ecole_id", ecoleId).eq("statut", "actif")).data?.map(e => e.id) || [])
+        .eq("statut", "en_attente")
+      const paiementsStatut = [
+        { name: "Payés", value: payeCount || 0, color: "#22c55e" },
+        { name: "En attente", value: attenteCount || 0, color: "#ef4444" },
+      ]
+
+      // Top classes by moyenne
+      const { data: bulletinsData } = await supabase
+        .from("bulletins")
+        .select("moyenne_generale, classe:classes!inner(libelle)")
+        .eq("classe.ecole_id", ecoleId)
+        .order("moyenne_generale", { ascending: false })
+      const classeMap: Record<string, { sum: number; count: number }> = {}
+      if (bulletinsData) {
+        (bulletinsData as unknown as { moyenne_generale: number; classe: { libelle: string } | null }[]).forEach((b) => {
+          const lib = b.classe?.libelle || "N/A"
+          if (!classeMap[lib]) classeMap[lib] = { sum: 0, count: 0 }
+          classeMap[lib].sum += b.moyenne_generale || 0
+          classeMap[lib].count++
+        })
+      }
+      const topClasses = Object.entries(classeMap)
+        .map(([classe, v]) => ({ classe, moyenne: v.count > 0 ? v.sum / v.count : 0 }))
+        .sort((a, b) => b.moyenne - a.moyenne)
+        .slice(0, 5)
+
+      setChartsData({ paiementsParMois, presencesBreakdown, paiementsStatut, topClasses })
 
       setLoading(false)
     }
@@ -732,6 +809,9 @@ export default function DashboardPage() {
             </Card>
           </FadeInView>
         </div>
+        <FadeInView delay={0.5}>
+          <DashboardCharts data={chartsData} loading={loading} />
+        </FadeInView>
       </div>
     </PageTransition>
   )
