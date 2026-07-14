@@ -48,7 +48,7 @@ export default function ImpayesPage() {
 
     setImpayes((data || []) as unknown as Impaye[])
     setLoading(false)
-  }, [profile?.ecole_id])
+  }, [profile])
 
   useEffect(() => { loadImpayes() }, [loadImpayes])
 

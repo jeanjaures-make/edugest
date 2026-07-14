@@ -39,7 +39,7 @@ const apiUrl = process.env.SMS_API_URL || ""
  * Ex: 0701234567 -> +2250701234567
  */
 export function normalizePhoneCI(phone: string): string {
-  let p = phone.replace(/[\s\-\.]/g, "")
+  const p = phone.replace(/[\s\-\.]/g, "")
   if (p.startsWith("+225")) return p
   if (p.startsWith("225")) return "+" + p
   if (p.startsWith("0")) return "+225" + p

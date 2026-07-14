@@ -41,7 +41,7 @@ export interface PaymentResult {
  * Normalise un numéro de téléphone au format international CI
  */
 export function normalizePhone(phone: string): string {
-  let p = phone.replace(/[\s\-\.]/g, "")
+  const p = phone.replace(/[\s\-\.]/g, "")
   if (p.startsWith("+225")) return p
   if (p.startsWith("225")) return "+" + p
   if (p.startsWith("0")) return "+225" + p

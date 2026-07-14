@@ -26,18 +26,6 @@ export function usePushNotifications() {
     }
   }, [])
 
-  const requestPermission = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await Notification.requestPermission()
-      setPermission(result)
-      if (result === "granted") {
-        await subscribe()
-      }
-    } catch { /* ignore */ }
-    setLoading(false)
-  }, [])
-
   const subscribe = useCallback(async () => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return
 
@@ -64,6 +52,18 @@ export function usePushNotifications() {
       })
     } catch { /* ignore */ }
   }, [])
+
+  const requestPermission = useCallback(async () => {
+    setLoading(true)
+    try {
+      const result = await Notification.requestPermission()
+      setPermission(result)
+      if (result === "granted") {
+        await subscribe()
+      }
+    } catch { /* ignore */ }
+    setLoading(false)
+  }, [subscribe])
 
   const unsubscribe = useCallback(async () => {
     if (subscription) {

@@ -40,7 +40,7 @@ export default function ImportElevesPage() {
       .eq("ecole_id", profile.ecole_id)
       .order("libelle")
     if (data) setClasses(data)
-  }, [profile?.ecole_id])
+  }, [profile])
 
   useEffect(() => { loadClasses() }, [loadClasses])
 

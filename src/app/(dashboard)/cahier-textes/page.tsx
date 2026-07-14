@@ -76,7 +76,7 @@ export default function CahierTextesPage() {
     const { data } = await query.limit(50)
     setEntries((data || []) as unknown as CahierEntry[])
     setLoading(false)
-  }, [profile?.ecole_id, filterClasse])
+  }, [profile, filterClasse])
 
   useEffect(() => { load() }, [load])
 
@@ -141,7 +141,7 @@ export default function CahierTextesPage() {
             <div className="text-center py-8">
               <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-3" />
               <p className="text-sm text-gray-500">Aucune entrée dans le cahier de textes.</p>
-              <p className="text-xs text-gray-400 mt-1">Cliquez sur "Nouvelle entrée" pour commencer.</p>
+              <p className="text-xs text-gray-400 mt-1">Cliquez sur &quot;Nouvelle entrée&quot; pour commencer.</p>
             </div>
           </CardContent>
         </Card>

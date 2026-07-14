@@ -424,7 +424,7 @@ export default function NouvelElevePage() {
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="matricule">Matricule national *</Label>
               <Input id="matricule" required value={form.matricule} onChange={(e) => update("matricule", e.target.value)} placeholder="Ex: CI001234567" />
-              <p className="text-xs text-gray-400">Matricule officiel de l'&apos;élève (CNI, passeport ou numéro national).</p>
+              <p className="text-xs text-gray-400">Matricule officiel de l&apos;élève (CNI, passeport ou numéro national).</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="nom">Nom *</Label>
