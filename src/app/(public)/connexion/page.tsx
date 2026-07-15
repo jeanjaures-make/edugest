@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion } from "framer-motion"
 import { Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 export default function ConnexionPage() {
   const router = useRouter()
@@ -25,15 +26,13 @@ export default function ConnexionPage() {
     setError("")
 
     try {
-      const res = await fetch("/api/auth/sign-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       })
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.message || "Identifiants incorrects")
+      if (signInError || !data.user) {
+        throw new Error("Email ou mot de passe incorrect")
       }
 
       router.push("/dashboard")
