@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,7 +42,7 @@ export default function BibliothequePage() {
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const [ouvRes, pretsRes] = await Promise.all([
@@ -73,10 +73,9 @@ export default function BibliothequePage() {
       })))
     }
     setLoading(false)
-  }
+  }, [profile])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   async function retournerPret(id: string) {
     await supabase.from("bibliotheque_prets").update({

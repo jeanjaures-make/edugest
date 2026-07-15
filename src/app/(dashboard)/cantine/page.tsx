@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,7 +32,7 @@ export default function CantinePage() {
   const [rows, setRows] = useState<CantineRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const { data } = await supabase
@@ -59,10 +59,9 @@ export default function CantinePage() {
       })))
     }
     setLoading(false)
-  }
+  }, [profile])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   async function supprimer(id: string) {
     if (!confirm("Supprimer cet abonnement ?")) return

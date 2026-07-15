@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -29,7 +29,7 @@ export default function DocumentsPage() {
   const [rows, setRows] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const { data } = await supabase
@@ -53,10 +53,9 @@ export default function DocumentsPage() {
       })))
     }
     setLoading(false)
-  }
+  }, [profile])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   const total = rows.length
   const bulletins = rows.filter((r) => r.type === "bulletin").length

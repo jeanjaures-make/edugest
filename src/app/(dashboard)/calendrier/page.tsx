@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,7 +37,7 @@ export default function CalendrierPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const debut = startOfMonth(currentMonth)
@@ -51,10 +51,9 @@ export default function CalendrierPage() {
       .order("date_debut", { ascending: true })
     if (data) setEvenements(data)
     setLoading(false)
-  }
+  }, [profile, currentMonth])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   async function supprimer(id: string) {
     if (!confirm("Supprimer cet événement ?")) return

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -29,7 +29,7 @@ export default function FraisPage() {
   const [editTarget, setEditTarget] = useState<Frais | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const { data } = await supabase
@@ -39,10 +39,9 @@ export default function FraisPage() {
       .order("libelle", { ascending: true })
     if (data) setRows(data)
     setLoading(false)
-  }
+  }, [profile])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   const avgScolarite = rows.filter((r) => r.type === "scolarite")
     .reduce((sum, r, _, arr) => sum + (arr.length > 0 ? r.montant / arr.length : 0), 0)

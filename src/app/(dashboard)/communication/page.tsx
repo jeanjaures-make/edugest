@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -34,7 +34,7 @@ export default function CommunicationPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"messages" | "sms">("messages")
 
-  async function load() {
+  const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const { data } = await supabase
@@ -45,10 +45,9 @@ export default function CommunicationPage() {
       .limit(50)
     if (data) setMessages(data)
     setLoading(false)
-  }
+  }, [profile])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   return (
     <div className="space-y-6">

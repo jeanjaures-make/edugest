@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -38,7 +38,7 @@ export default function InscriptionsPage() {
   const [rows, setRows] = useState<InscriptionRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!profile?.ecole_id) return
     const { data } = await supabase
       .from("inscriptions")
@@ -62,10 +62,9 @@ export default function InscriptionsPage() {
       })))
     }
     setLoading(false)
-  }
+  }, [profile])
 
-  const onLoad = useEffectEvent(() => load())
-  useEffect(() => { onLoad() }, [])
+  useEffect(() => { load() }, [load])
 
   async function updateStatut(id: string, statut: string) {
     await supabase.from("inscriptions").update({ statut }).eq("id", id); load()

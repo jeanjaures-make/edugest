@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useEffectEvent } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -52,7 +52,7 @@ export default function PresencesPage() {
   const [saving, setSaving] = useState(false)
   const [elevesLoading, setElevesLoading] = useState(false)
 
-  async function loadPresences() {
+  const loadPresences = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
     const { data } = await supabase
@@ -77,19 +77,20 @@ export default function PresencesPage() {
       })))
     }
     setLoading(false)
-  }
+  }, [profile])
 
-  const onInit = useEffectEvent(() => {
+  const loadClasses = useCallback(() => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
-    loadPresences()
     supabase.from("classes").select("id, libelle").eq("ecole_id", ecoleId).order("libelle").then(({ data }) => {
       if (data) setClasses(data)
     })
-  })
-  useEffect(() => { onInit() }, [])
+  }, [profile])
 
-  async function chargerEleves() {
+  useEffect(() => { loadPresences() }, [loadPresences])
+  useEffect(() => { loadClasses() }, [loadClasses])
+
+  const chargerEleves = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!selectedClasse || !ecoleId) return
     setElevesLoading(true)
@@ -120,10 +121,9 @@ export default function PresencesPage() {
       })))
     }
     setElevesLoading(false)
-  }
+  }, [selectedClasse, selectedDate, profile])
 
-  const onClasseOrDateChange = useEffectEvent(() => { if (selectedClasse) chargerEleves() })
-  useEffect(() => { onClasseOrDateChange() }, [selectedClasse, selectedDate])
+  useEffect(() => { chargerEleves() }, [chargerEleves])
 
   function setStatut(eleveId: string, statut: string) {
     setEleves((prev) => prev.map((e) => e.eleve_id === eleveId ? { ...e, statut, motif: statut !== "absent" ? "" : e.motif } : e))
