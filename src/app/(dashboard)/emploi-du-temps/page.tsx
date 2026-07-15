@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { PageTransition } from "@/components/animations/page-transition"
 import { FadeInView } from "@/components/animations/fade-in-view"
-import { Plus, Trash2, Loader2 } from "lucide-react"
+import { Plus, Trash2, Loader2, Printer } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/lib/hooks/use-user"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -117,6 +117,69 @@ export default function EmploiDuTempsPage() {
     return cours.filter((c) => c.jour_semaine === jour && c.heure_debut.slice(0, 5) === creneau)
   }
 
+  function handlePrint() {
+    const classeLibelle = classes.find((c) => c.id === classeId)?.libelle ?? ""
+    const printWindow = window.open("", "_blank", "width=900,height=700")
+    if (!printWindow) return
+
+    const jours = JOURS
+    const creneaux = CRENEAUX
+
+    const rows = creneaux.map((creneau) => {
+      const cells = jours.map((_, jourIdx) => {
+        const jourNum = jourIdx + 1
+        const coursList = getCours(jourNum, creneau)
+        return `<td style="border:1px solid #ccc;padding:6px;vertical-align:top;height:50px;width:14%">${
+          coursList.map((c) =>
+            `<div style="margin-bottom:4px;padding:4px;border-radius:4px;background:#e0e7ff;color:#3730a3;font-size:11px">${
+              `<div style="font-weight:600">${c.matiere?.libelle ?? "?"}</div>` +
+              (c.salle ? `<div>${c.salle}</div>` : "") +
+              (c.enseignant ? `<div style="opacity:0.7">${c.enseignant.prenom} ${c.enseignant.nom}</div>` : "")
+            }</div>`
+          ).join("")
+        }</td>`
+      }).join("")
+      return `<tr><td style="border:1px solid #ccc;padding:6px;font-weight:600;font-size:12px;text-align:right;width:60px">${creneau}</td>${cells}</tr>`
+    }).join("")
+
+    const headerDays = jours.map((j) =>
+      `<th style="border:1px solid #ccc;padding:8px;background:#f3f4f6;font-size:13px">${j}</th>`
+    ).join("")
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="utf-8">
+        <title>Emploi du temps - ${classeLibelle}</title>
+        <style>
+          * { font-family: Arial, Helvetica, sans-serif; }
+          body { margin: 24px; color: #1f2937; }
+          h1 { font-size: 20px; margin: 0 0 4px 0; }
+          h2 { font-size: 14px; font-weight: 400; color: #6b7280; margin: 0 0 20px 0; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { text-align: left; }
+          .footer { margin-top: 20px; font-size: 11px; color: #9ca3af; text-align: center; }
+          @media print { body { margin: 12px; } }
+        </style>
+      </head>
+      <body>
+        <h1>Emploi du temps</h1>
+        <h2>Classe: ${classeLibelle} | Année scolaire ${new Date().getFullYear()}-${new Date().getFullYear() + 1}</h2>
+        <table>
+          <thead>
+            <tr><th style="border:1px solid #ccc;padding:8px;background:#f3f4f6;width:60px"></th>${headerDays}</tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="footer">Document généré par EduGest CI — ${new Date().toLocaleDateString("fr-FR")}</div>
+        <script>window.onload = () => { window.print(); }<\/script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
   if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
 
   return (
@@ -136,6 +199,7 @@ export default function EmploiDuTempsPage() {
                   {classes.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
                 </select>
               </div>
+              <Button variant="outline" disabled={!classeId || cours.length === 0} onClick={handlePrint}><Printer className="h-4 w-4 mr-2" />Imprimer</Button>
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
                   <Button disabled={!classeId} onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-2" />Ajouter un cours</Button>
