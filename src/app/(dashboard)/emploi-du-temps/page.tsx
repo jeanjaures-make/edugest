@@ -81,9 +81,12 @@ export default function EmploiDuTempsPage() {
   useEffect(() => { loadCours() }, [loadCours])
 
   async function addCours() {
-    if (!classeId || !newCours.matiere_id) return
+    if (!classeId || !newCours.matiere_id) {
+      console.log("addCours: missing data", { classeId, matiere_id: newCours.matiere_id })
+      return
+    }
     setSaving(true)
-    const { error } = await supabase.from("emplois_du_temps").insert({
+    const payload = {
       classe_id: classeId,
       matiere_id: newCours.matiere_id,
       enseignant_id: newCours.enseignant_id || null,
@@ -91,9 +94,12 @@ export default function EmploiDuTempsPage() {
       heure_debut: newCours.heure_debut,
       heure_fin: newCours.heure_fin,
       salle: newCours.salle || null,
-    })
+    }
+    console.log("addCours: inserting", payload)
+    const { error } = await supabase.from("emplois_du_temps").insert(payload)
     setSaving(false)
     if (error) {
+      console.error("addCours: insert error", error)
       alert("Erreur lors de l'ajout du cours: " + error.message)
       return
     }
@@ -143,10 +149,14 @@ export default function EmploiDuTempsPage() {
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <Label>Matière</Label>
-                      <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm" value={newCours.matiere_id} onChange={(e) => setNewCours({ ...newCours, matiere_id: e.target.value, enseignant_id: "" })}>
-                        <option value="">Sélectionner</option>
-                        {matieres.map((m) => <option key={m.id} value={m.id}>{m.libelle}</option>)}
-                      </select>
+                      {matieres.length === 0 ? (
+                        <p className="text-sm text-red-500">Aucune matière trouvée. Vérifiez que votre école a des matières configurées.</p>
+                      ) : (
+                        <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm" value={newCours.matiere_id} onChange={(e) => setNewCours({ ...newCours, matiere_id: e.target.value, enseignant_id: "" })}>
+                          <option value="">Sélectionner</option>
+                          {matieres.map((m) => <option key={m.id} value={m.id}>{m.libelle}</option>)}
+                        </select>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label>Enseignant</Label>
@@ -178,7 +188,7 @@ export default function EmploiDuTempsPage() {
                     <div className="flex justify-end gap-2 pt-2">
                       <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
                       <Button onClick={addCours} disabled={!newCours.matiere_id || saving}>
-                        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Ajout...</> : "Ajouter"}
+                        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Ajout...</> : newCours.matiere_id ? "Ajouter" : "Sélectionnez une matière"}
                       </Button>
                     </div>
                   </div>
