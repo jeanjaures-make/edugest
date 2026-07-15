@@ -22,7 +22,6 @@ interface Impaye {
   date_inscription: string
   eleve?: { nom: string; prenom: string; matricule: string; parent: { telephone: string | null; nom: string; prenom: string | null } | null } | null
   classe?: { libelle: string } | null
-  has_echeancier: boolean
 }
 
 export default function ImpayesPage() {

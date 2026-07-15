@@ -42,11 +42,21 @@ export async function GET() {
     .eq("active", true)
     .maybeSingle()
 
-  // 2. Get all inscriptions for this school (with eleve + classe + parent)
+  // 2. Get all frais_scolarite configured for this school (from /frais page)
+  const { data: fraisConfig, error: fraisErr } = await admin
+    .from("frais_scolarite")
+    .select("id, libelle, montant, type, periodicite")
+    .eq("ecole_id", profil.ecole_id)
+  if (fraisErr) return NextResponse.json({ error: fraisErr.message }, { status: 400 })
+
+  // Total dû = somme de tous les frais configurés pour l'école
+  const totalDu = (fraisConfig || []).reduce((sum: number, f: any) => sum + (f.montant || 0), 0)
+
+  // 3. Get all inscriptions for this school (with eleve + classe + parent)
   let inscriptionsQuery = admin
     .from("inscriptions")
     .select(`
-      id, eleve_id, classe_id, frais_scolarite, frais_inscription, statut, date_inscription,
+      id, eleve_id, classe_id, statut, date_inscription,
       eleve:eleves(id, nom, prenom, matricule, parent:profils!parent_id(telephone, nom, prenom)),
       classe:classes(id, libelle)
     `)
@@ -60,7 +70,7 @@ export async function GET() {
   const { data: inscriptions, error: insErr } = await inscriptionsQuery
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 })
 
-  // 3. Get all confirmed paiements for these students
+  // 4. Get all confirmed paiements for these students
   const eleveIds = (inscriptions || []).map((i: any) => i.eleve_id).filter(Boolean)
   let paiementsMap: Record<string, number> = {}
   if (eleveIds.length > 0) {
@@ -74,27 +84,9 @@ export async function GET() {
     }
   }
 
-  // 4. Get echeanciers for additional info
-  let echeanciersMap: Record<string, { montant_total: number; montant_restant: number; statut: string }> = {}
-  if (eleveIds.length > 0) {
-    const { data: echeanciers } = await admin
-      .from("echeanciers")
-      .select("eleve_id, montant_total, montant_restant, statut")
-      .in("eleve_id", eleveIds)
-    for (const e of echeanciers || []) {
-      echeanciersMap[e.eleve_id] = {
-        montant_total: e.montant_total,
-        montant_restant: e.montant_restant,
-        statut: e.statut,
-      }
-    }
-  }
-
-  // 5. Compute remaining balance per student
+  // 5. Compute remaining balance per student based on configured frais
   const impayes = (inscriptions || [])
-    .filter((ins: any) => ins.frais_scolarite > 0 || ins.frais_inscription > 0)
     .map((ins: any) => {
-      const totalDu = (ins.frais_scolarite || 0) + (ins.frais_inscription || 0)
       const totalPaye = paiementsMap[ins.eleve_id] || 0
       const restant = totalDu - totalPaye
       return {
@@ -107,10 +99,9 @@ export async function GET() {
         date_inscription: ins.date_inscription,
         eleve: ins.eleve,
         classe: ins.classe,
-        has_echeancier: !!echeanciersMap[ins.eleve_id],
       }
     })
     .filter((i: any) => i.montant_restant > 0)
 
-  return NextResponse.json({ data: impayes })
+  return NextResponse.json({ data: impayes, totalDu, fraisCount: (fraisConfig || []).length })
 }
