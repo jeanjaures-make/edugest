@@ -107,7 +107,7 @@ export default function EmploiDuTempsPage() {
   }
 
   function getCours(jour: number, creneau: string): CoursItem[] {
-    return cours.filter((c) => c.jour_semaine === jour && c.heure_debut === creneau)
+    return cours.filter((c) => c.jour_semaine === jour && c.heure_debut.slice(0, 5) === creneau)
   }
 
   if (loading) return <div className="flex justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>
