@@ -69,38 +69,33 @@ export default function EmploiDuTempsPage() {
 
   const loadCours = useCallback(async () => {
     if (!classeId) { setCours([]); return }
-    const { data } = await supabase
-      .from("emplois_du_temps")
-      .select("id, jour_semaine, heure_debut, heure_fin, salle, matiere:matieres(libelle), enseignant:personnel(nom, prenom)")
-      .eq("classe_id", classeId)
-      .order("jour_semaine")
-      .order("heure_debut")
-    if (data) setCours(data as unknown as CoursItem[])
+    const res = await fetch(`/api/emplois-du-temps?classe_id=${classeId}`)
+    const json = await res.json()
+    if (json.data) setCours(json.data as unknown as CoursItem[])
   }, [classeId])
 
   useEffect(() => { loadCours() }, [loadCours])
 
   async function addCours() {
-    if (!classeId || !newCours.matiere_id) {
-      console.log("addCours: missing data", { classeId, matiere_id: newCours.matiere_id })
-      return
-    }
+    if (!classeId || !newCours.matiere_id) return
     setSaving(true)
-    const payload = {
-      classe_id: classeId,
-      matiere_id: newCours.matiere_id,
-      enseignant_id: newCours.enseignant_id || null,
-      jour_semaine: parseInt(newCours.jour),
-      heure_debut: newCours.heure_debut,
-      heure_fin: newCours.heure_fin,
-      salle: newCours.salle || null,
-    }
-    console.log("addCours: inserting", payload)
-    const { error } = await supabase.from("emplois_du_temps").insert(payload)
+    const res = await fetch("/api/emplois-du-temps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        classe_id: classeId,
+        matiere_id: newCours.matiere_id,
+        enseignant_id: newCours.enseignant_id || null,
+        jour_semaine: parseInt(newCours.jour),
+        heure_debut: newCours.heure_debut,
+        heure_fin: newCours.heure_fin,
+        salle: newCours.salle || null,
+      }),
+    })
+    const json = await res.json()
     setSaving(false)
-    if (error) {
-      console.error("addCours: insert error", error)
-      alert("Erreur lors de l'ajout du cours: " + error.message)
+    if (!res.ok) {
+      alert("Erreur lors de l'ajout du cours: " + (json.error || "Erreur inconnue"))
       return
     }
     setNewCours({ matiere_id: "", enseignant_id: "", jour: "1", heure_debut: "08:00", heure_fin: "09:00", salle: "" })
@@ -109,9 +104,10 @@ export default function EmploiDuTempsPage() {
   }
 
   async function deleteCours(id: string) {
-    const { error } = await supabase.from("emplois_du_temps").delete().eq("id", id)
-    if (error) {
-      alert("Erreur lors de la suppression: " + error.message)
+    const res = await fetch(`/api/emplois-du-temps?id=${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      const json = await res.json()
+      alert("Erreur lors de la suppression: " + (json.error || "Erreur inconnue"))
       return
     }
     loadCours()
