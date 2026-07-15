@@ -32,12 +32,9 @@ export default function FraisPage() {
   const load = useCallback(async () => {
     const ecoleId = profile?.ecole_id
     if (!ecoleId) return
-    const { data } = await supabase
-      .from("frais_scolarite")
-      .select("*")
-      .eq("ecole_id", ecoleId)
-      .order("libelle", { ascending: true })
-    if (data) setRows(data)
+    const res = await fetch("/api/frais-scolarite")
+    const json = await res.json()
+    if (json.data) setRows(json.data)
     setLoading(false)
   }, [profile])
 
@@ -149,15 +146,21 @@ function FraisDialog({ open, onOpenChange, edit, ecoleId, onDone }: {
     setSaving(true)
     setError("")
     if (edit) {
-      const { error: ue } = await supabase.from("frais_scolarite").update({
-        libelle, montant: parseInt(montant), type, periodicite,
-      }).eq("id", edit.id)
-      if (ue) { setError(ue.message); setSaving(false); return }
-    } else {
-      const { error: ie } = await supabase.from("frais_scolarite").insert({
-        ecole_id: ecoleId, libelle, montant: parseInt(montant), type, periodicite,
+      const res = await fetch(`/api/frais-scolarite?id=${edit.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ libelle, montant: parseInt(montant), type, periodicite }),
       })
-      if (ie) { setError(ie.message); setSaving(false); return }
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || "Erreur"); setSaving(false); return }
+    } else {
+      const res = await fetch("/api/frais-scolarite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ libelle, montant: parseInt(montant), type, periodicite }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || "Erreur"); setSaving(false); return }
     }
     setSaving(false)
     onOpenChange(false); onDone()
