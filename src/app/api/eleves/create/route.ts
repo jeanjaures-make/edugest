@@ -69,5 +69,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Erreur lors de la création de l'élève" }, { status: 400 })
   }
 
+  // Créer l'inscription correspondante si une classe est assignée
+  if (classe_id) {
+    const { data: annee } = await supabase
+      .from("annees_scolaires")
+      .select("id")
+      .eq("ecole_id", profil.ecole_id)
+      .eq("active", true)
+      .maybeSingle()
+
+    if (annee?.id) {
+      const { data: classe } = await supabase
+        .from("classes")
+        .select("frais_inscription, frais_scolarite")
+        .eq("id", classe_id)
+        .maybeSingle()
+
+      await supabase.from("inscriptions").insert({
+        eleve_id: eleve.id,
+        classe_id,
+        annee_scolaire_id: annee.id,
+        frais_inscription: classe?.frais_inscription ?? 0,
+        frais_scolarite: classe?.frais_scolarite ?? 0,
+        statut: "confirmee",
+      })
+    }
+  }
+
   return NextResponse.json({ eleve })
 }
