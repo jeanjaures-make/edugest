@@ -16,11 +16,13 @@ interface Impaye {
   id: string
   eleve_id: string
   montant_total: number
+  montant_paye: number
   montant_restant: number
   statut: string
-  created_at: string
+  date_inscription: string
   eleve?: { nom: string; prenom: string; matricule: string; parent: { telephone: string | null; nom: string; prenom: string | null } | null } | null
   classe?: { libelle: string } | null
+  has_echeancier: boolean
 }
 
 export default function ImpayesPage() {
@@ -35,18 +37,10 @@ export default function ImpayesPage() {
     if (!profile?.ecole_id) return
     setLoading(true)
 
-    const { data } = await supabase
-      .from("echeanciers")
-      .select(`
-        id, eleve_id, montant_total, montant_restant, statut, created_at,
-        eleve:eleves(nom, prenom, matricule, parent:profils!parent_id(telephone, nom, prenom)),
-        classe:classes(libelle)
-      `)
-      .eq("classe.ecole_id", profile.ecole_id)
-      .in("statut", ["en_attente", "partiel"])
-      .order("created_at", { ascending: false })
+    const res = await fetch("/api/frais/impayes")
+    const json = await res.json()
+    if (json.data) setImpayes(json.data as unknown as Impaye[])
 
-    setImpayes((data || []) as unknown as Impaye[])
     setLoading(false)
   }, [profile])
 
@@ -212,7 +206,7 @@ export default function ImpayesPage() {
                             {imp.eleve?.matricule} · {imp.classe?.libelle ?? "N/A"}
                           </p>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            Échéance du {format(new Date(imp.created_at), "dd MMM yyyy", { locale: fr })}
+                            Inscrit le {format(new Date(imp.date_inscription), "dd MMM yyyy", { locale: fr })}
                           </p>
                           {imp.eleve?.parent && (
                             <p className="text-xs text-gray-400">
@@ -228,7 +222,7 @@ export default function ImpayesPage() {
                             {imp.montant_restant.toLocaleString("fr-FR")} FCFA
                           </p>
                           <p className="text-xs text-gray-400">
-                            sur {imp.montant_total.toLocaleString("fr-FR")}
+                            sur {imp.montant_total.toLocaleString("fr-FR")} · {imp.montant_paye.toLocaleString("fr-FR")} payé
                           </p>
                         </div>
                         <Badge variant={imp.statut === "partiel" ? "warning" : "danger"}>
