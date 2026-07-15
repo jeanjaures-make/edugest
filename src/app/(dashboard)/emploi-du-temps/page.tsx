@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { PageTransition } from "@/components/animations/page-transition"
 import { FadeInView } from "@/components/animations/fade-in-view"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Loader2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useUser } from "@/lib/hooks/use-user"
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 interface ClasseItem { id: string; libelle: string }
 interface MatiereItem { id: string; libelle: string }
@@ -40,6 +40,8 @@ export default function EmploiDuTempsPage() {
   const [classeId, setClasseId] = useState("")
 
   const [newCours, setNewCours] = useState({ matiere_id: "", enseignant_id: "", jour: "1", heure_debut: "08:00", heure_fin: "09:00", salle: "" })
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const loadInitial = useCallback(async () => {
     if (!profile?.ecole_id) { setLoading(false); return }
@@ -80,6 +82,7 @@ export default function EmploiDuTempsPage() {
 
   async function addCours() {
     if (!classeId || !newCours.matiere_id) return
+    setSaving(true)
     const { error } = await supabase.from("emplois_du_temps").insert({
       classe_id: classeId,
       matiere_id: newCours.matiere_id,
@@ -89,11 +92,13 @@ export default function EmploiDuTempsPage() {
       heure_fin: newCours.heure_fin,
       salle: newCours.salle || null,
     })
+    setSaving(false)
     if (error) {
       alert("Erreur lors de l'ajout du cours: " + error.message)
       return
     }
     setNewCours({ matiere_id: "", enseignant_id: "", jour: "1", heure_debut: "08:00", heure_fin: "09:00", salle: "" })
+    setDialogOpen(false)
     loadCours()
   }
 
@@ -129,9 +134,9 @@ export default function EmploiDuTempsPage() {
                   {classes.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
                 </select>
               </div>
-              <Dialog>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button disabled={!classeId}><Plus className="h-4 w-4 mr-2" />Ajouter un cours</Button>
+                  <Button disabled={!classeId} onClick={() => setDialogOpen(true)}><Plus className="h-4 w-4 mr-2" />Ajouter un cours</Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Ajouter un cours</DialogTitle><DialogDescription>Planifier un nouveau cours dans l&apos;emploi du temps</DialogDescription></DialogHeader>
@@ -171,10 +176,10 @@ export default function EmploiDuTempsPage() {
                       <Input value={newCours.salle} onChange={(e) => setNewCours({ ...newCours, salle: e.target.value })} placeholder="ex: Salle 101" />
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
-                      <DialogClose asChild><Button variant="outline">Annuler</Button></DialogClose>
-                      <DialogClose asChild>
-                        <Button onClick={addCours} disabled={!newCours.matiere_id}>Ajouter</Button>
-                      </DialogClose>
+                      <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
+                      <Button onClick={addCours} disabled={!newCours.matiere_id || saving}>
+                        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Ajout...</> : "Ajouter"}
+                      </Button>
                     </div>
                   </div>
                 </DialogContent>
