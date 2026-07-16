@@ -45,23 +45,17 @@ export default function ConnexionPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-orange-50" />
-      <motion.div
-        className="absolute top-20 left-10 w-72 h-72 bg-blue-300/20 rounded-full blur-3xl"
-        animate={{ x: [0, 50, 0], y: [0, -30, 0] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute bottom-20 right-10 w-96 h-96 bg-orange-300/20 rounded-full blur-3xl"
-        animate={{ x: [0, -40, 0], y: [0, 40, 0] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute top-1/2 left-1/3 w-48 h-48 bg-violet-300/15 rounded-full blur-3xl"
-        animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gray-950 p-4">
+      <div className="absolute inset-0">
+        <img
+          src="https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=2070&q=80"
+          alt=""
+          className="h-full w-full object-cover opacity-15"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-950/90 via-gray-950/85 to-gray-950" />
+      </div>
+      <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full bg-orange-500/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full bg-amber-500/8 blur-[100px] pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -78,12 +72,12 @@ export default function ConnexionPage() {
         transition={{ duration: 0.5, delay: 0.2 }}
         className="w-full max-w-md"
       >
-        <Card className="border-white/50 bg-white/80 backdrop-blur-xl shadow-xl shadow-blue-900/5">
+        <Card className="border-white/10 bg-gray-900/80 backdrop-blur-xl shadow-2xl shadow-orange-500/5">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <CardTitle className="text-2xl bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
               Connexion
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Connectez-vous à votre espace scolaire
             </CardDescription>
           </CardHeader>
@@ -93,7 +87,7 @@ export default function ConnexionPage() {
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-600 flex items-center gap-2"
+                  className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400 flex items-center gap-2"
                 >
                   <div className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                   {error}
@@ -139,37 +133,37 @@ export default function ConnexionPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-11" disabled={loading} loading={loading}>
+              <Button type="submit" className="w-full h-11 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0" disabled={loading} loading={loading}>
                 {loading ? "Connexion..." : "Se connecter"}
               </Button>
 
               <div className="flex items-center justify-between text-sm">
-                <Link href="/reinitialiser-mot-de-passe" className="text-primary hover:underline font-medium">
+                <Link href="/reinitialiser-mot-de-passe" className="text-orange-400 hover:text-orange-300 hover:underline font-medium">
                   Mot de passe oublié ?
                 </Link>
               </div>
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
+                  <span className="w-full border-t border-white/10" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white/80 backdrop-blur-xl px-2 text-muted-foreground">
+                  <span className="bg-gray-900/80 backdrop-blur-xl px-2 text-gray-500">
                     Première visite ?
                   </span>
                 </div>
               </div>
 
-              <div className="space-y-3 text-center text-sm text-muted-foreground">
+              <div className="space-y-3 text-center text-sm text-gray-400">
                 <div>
                   Vous êtes un établissement ?{" "}
-                  <a href="/onboarding" className="font-medium text-primary hover:underline">
+                  <a href="/onboarding" className="font-medium text-orange-400 hover:text-orange-300 hover:underline">
                     Créer mon école
                   </a>
                 </div>
                 <div>
                   Vous êtes parent et souhaitez inscrire votre enfant ?{" "}
-                  <a href="/inscription" className="font-medium text-primary hover:underline">
+                  <a href="/inscription" className="font-medium text-orange-400 hover:text-orange-300 hover:underline">
                     Créer un compte parent
                   </a>
                 </div>
@@ -183,7 +177,7 @@ export default function ConnexionPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="mt-8 text-xs text-muted-foreground"
+        className="mt-8 text-xs text-gray-500"
       >
         &copy; {new Date().getFullYear()} EduGest CI. Tous droits réservés.
       </motion.p>

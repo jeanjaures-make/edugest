@@ -155,29 +155,23 @@ export default function OnboardingPage() {
   const steps = ["École", "Administrateur", "Confirmation"]
 
   function getStepIcon(iconStep: number) {
-    if (iconStep < stepIndex) return <CheckCircle className="h-5 w-5" />
-    if (iconStep === stepIndex) return <div className="h-5 w-5 rounded-full border-2 border-primary" />
-    return <div className="h-5 w-5 rounded-full border-2 border-gray-300" />
+    if (iconStep < stepIndex) return <CheckCircle className="h-5 w-5 text-orange-500" />
+    if (iconStep === stepIndex) return <div className="h-5 w-5 rounded-full border-2 border-orange-500" />
+    return <div className="h-5 w-5 rounded-full border-2 border-gray-600" />
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden p-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-orange-50" />
-      <motion.div
-        className="absolute top-20 left-10 w-72 h-72 bg-blue-300/20 rounded-full blur-3xl"
-        animate={{ x: [0, 50, 0], y: [0, -30, 0] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute bottom-20 right-10 w-96 h-96 bg-orange-300/20 rounded-full blur-3xl"
-        animate={{ x: [0, -40, 0], y: [0, 40, 0] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute top-1/3 left-1/4 w-48 h-48 bg-violet-300/15 rounded-full blur-3xl"
-        animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
+    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-gray-950 p-4">
+      <div className="absolute inset-0">
+        <img
+          src="https://images.unsplash.com/photo-1503676263748-1bb8c0da4a24?auto=format&fit=crop&w=2070&q=80"
+          alt=""
+          className="h-full w-full object-cover opacity-15"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-950/90 via-gray-950/85 to-gray-950" />
+      </div>
+      <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full bg-orange-500/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full bg-amber-500/8 blur-[100px] pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -197,14 +191,14 @@ export default function OnboardingPage() {
                   {getStepIcon(idx)}
                   <span
                     className={`text-sm font-medium hidden sm:inline ${
-                      idx <= stepIndex ? "text-primary" : "text-gray-400"
+                      idx <= stepIndex ? "text-orange-400" : "text-gray-500"
                     }`}
                   >
                     {label}
                   </span>
                 </div>
                 {idx < steps.length - 1 && (
-                  <div className={`h-0.5 w-8 mx-2 ${idx < stepIndex ? "bg-primary" : "bg-gray-200"}`} />
+                  <div className={`h-0.5 w-8 mx-2 ${idx < stepIndex ? "bg-orange-500" : "bg-white/10"}`} />
                 )}
               </div>
             ))}
@@ -218,7 +212,7 @@ export default function OnboardingPage() {
         transition={{ duration: 0.5, delay: 0.2 }}
         className="w-full max-w-md"
       >
-        <Card className="border-white/50 bg-white/80 backdrop-blur-xl shadow-xl shadow-blue-900/5">
+        <Card className="border-white/10 bg-gray-900/80 backdrop-blur-xl shadow-2xl shadow-orange-500/5">
           <AnimatePresence mode="wait">
             {step === "ecole" && (
               <motion.div
@@ -229,13 +223,13 @@ export default function OnboardingPage() {
                 transition={{ duration: 0.3 }}
               >
                 <CardHeader className="text-center">
-                  <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-primary" />
+                  <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center">
+                    <Building2 className="h-6 w-6 text-orange-400" />
                   </div>
-                  <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  <CardTitle className="text-2xl bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
                     Créer mon école
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-gray-400">
                     Commencez par renseigner les informations de votre établissement
                   </CardDescription>
                 </CardHeader>
@@ -272,13 +266,13 @@ export default function OnboardingPage() {
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="h-20 w-20 rounded-lg border-2 border-dashed border-border hover:border-primary flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-primary transition-colors shrink-0"
+                            className="h-20 w-20 rounded-lg border-2 border-dashed border-white/15 hover:border-orange-500 flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-orange-400 transition-colors shrink-0"
                           >
                             <Upload className="h-5 w-5" />
                             <span className="text-[10px]">Logo</span>
                           </button>
                         )}
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-gray-500">
                           <p>PNG, JPG, WEBP ou SVG</p>
                           <p>Max 2 Mo</p>
                         </div>
@@ -407,13 +401,13 @@ export default function OnboardingPage() {
                 transition={{ duration: 0.3 }}
               >
                 <CardHeader className="text-center">
-                  <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-6 w-6 text-primary" />
+                  <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-orange-500/10 flex items-center justify-center">
+                    <User className="h-6 w-6 text-orange-400" />
                   </div>
-                  <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  <CardTitle className="text-2xl bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
                     Administrateur
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-gray-400">
                     Créez le compte administrateur de votre établissement
                   </CardDescription>
                 </CardHeader>
@@ -517,7 +511,7 @@ export default function OnboardingPage() {
                       <motion.div
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-600"
+                        className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400"
                       >
                         {error}
                       </motion.div>
@@ -527,7 +521,7 @@ export default function OnboardingPage() {
                       <Button
                         type="button"
                         variant="outline"
-                        className="flex-1 h-11"
+                        className="flex-1 h-11 border-white/15 text-white bg-white/5 hover:bg-white/10"
                         onClick={() => setStep("ecole")}
                       >
                         <ArrowLeft className="h-4 w-4" />
@@ -536,7 +530,7 @@ export default function OnboardingPage() {
 
                       <Button
                         type="submit"
-                        className="flex-1 h-11"
+                        className="flex-1 h-11 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0"
                         disabled={!isAdminValid() || loading}
                         loading={loading}
                       >
@@ -561,11 +555,11 @@ export default function OnboardingPage() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-                    className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-100 flex items-center justify-center"
+                    className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center"
                   >
-                    <CheckCircle className="h-8 w-8 text-green-600" />
+                    <CheckCircle className="h-8 w-8 text-green-500" />
                   </motion.div>
-                  <CardTitle className="text-2xl bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  <CardTitle className="text-2xl bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
                     École créée avec succès !
                   </CardTitle>
                   {logoPreview && (
@@ -584,21 +578,21 @@ export default function OnboardingPage() {
                       />
                     </motion.div>
                   )}
-                  <CardDescription>
+                  <CardDescription className="text-gray-400">
                     Votre établissement <strong>{school.nom}</strong> a été enregistré.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="text-center space-y-4">
-                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-4 text-sm text-blue-700 text-left space-y-1">
+                  <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-4 text-sm text-orange-300 text-left space-y-1">
                     <p className="font-medium">Informations de connexion :</p>
                     <p>Email : <strong>{admin.email}</strong></p>
-                    <p className="text-xs text-blue-500">
+                    <p className="text-xs text-orange-400/70">
                       Un email de confirmation a été envoyé à cette adresse.
                     </p>
                   </div>
 
                   <Button
-                    className="w-full h-11"
+                    className="w-full h-11 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white border-0"
                     onClick={() => router.push("/connexion")}
                   >
                     Aller à la connexion{countdown > 0 ? ` (${countdown}s)` : ""}
@@ -614,7 +608,7 @@ export default function OnboardingPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="mt-8 text-xs text-muted-foreground"
+        className="mt-8 text-xs text-gray-500"
       >
         &copy; {new Date().getFullYear()} EduGest CI. Tous droits réservés.
       </motion.p>
